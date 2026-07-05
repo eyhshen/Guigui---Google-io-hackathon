@@ -1,20 +1,54 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 柜柜 GuiGui
 
-# Run and deploy your AI Studio app
+会看的护肤柜。打开相机扫一遍护肤柜，AI 识别产品、记录 PAO 开封后保质期，并在新品裁决、今日肤况、旅行打包这些时刻，从你已经拥有的产品里给出建议。
 
-This contains everything you need to run your app locally.
+This is a Google AI Studio / Google I/O hackathon MVP built with React, Vite, Express, and Gemini.
 
-View your app in AI Studio: https://ai.studio/apps/471a7e09-118d-4e1a-9048-b54f76fcc2dc
+## What It Does
+
+- Scan skincare products with Gemini multimodal recognition.
+- Extract product name, brand, category, key ingredients, PAO months, and bottle shape/color.
+- Build a digital shelf with expiry badges.
+- Ask what to use or avoid for a self-reported skin condition.
+- Generate a lightweight travel packing list from products already on the shelf.
+
+GuiGui provides organization and skincare routine suggestions based on self-reported information. It is not medical advice.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js 20+
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+
+   ```bash
+   npm install
+   ```
+
+2. Create `.env.local` from the example and add your Gemini API key:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
 3. Run the app:
-   `npm run dev`
+
+   ```bash
+   npm run dev
+   ```
+
+The local server runs at [http://localhost:3000](http://localhost:3000).
+
+## Checks
+
+```bash
+npm run lint
+npm run build
+```
+
+## Environment
+
+Do not commit `.env.local`.
+
+```bash
+GEMINI_API_KEY="your Gemini API key"
+```
