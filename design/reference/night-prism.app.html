@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16141F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="护肤架">
+<title>护肤架 · Shelfie — 夜虹</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%2316141F"/><path d="M26 14h12v6h-3v5h6a5 5 0 0 1 5 5v18a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V30a5 5 0 0 1 5-5h6v-5h-3z" fill="url(%23g)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="%23F5C0CB"/><stop offset=".35" stop-color="%23F7DDB2"/><stop offset=".7" stop-color="%23BEEBD1"/><stop offset="1" stop-color="%23B4D6F5"/></linearGradient></defs></svg>'>
+<link rel="manifest" href='data:application/manifest+json,{"name":"护肤架 Shelfie","short_name":"护肤架","display":"standalone","background_color":"%2316141F","theme_color":"%2316141F","start_url":"."}'>
+<style>
+:root {
+  --bg:#16141F; --bg2:#1B1828; --surface:rgba(255,255,255,.05); --surface2:rgba(255,255,255,.08);
+  --line:rgba(255,255,255,.13); --ink:#F1EDF7; --muted:#9C94B3; --dim:#6E6884;
+  --mint:#A7E8C0; --rose:#F08A9B; --amber:#F5C377; --blue:#92C4F2; --lilac:#C7A8F0;
+  --prism:linear-gradient(100deg,#F5C0CB,#F7DDB2 30%,#BEEBD1 60%,#B4D6F5 85%,#D3BDF2);
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; }
+body {
+  background:var(--bg); color:var(--ink); overflow:hidden;
+  font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
+  max-width:480px; margin:0 auto; position:relative;
+}
+button { font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+button:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--mint); outline-offset:2px; border-radius:6px; }
+
+/* ---------- ambient prism beams + grain ---------- */
+.beam { position:fixed; z-index:0; pointer-events:none; filter:blur(30px); opacity:.42;
+  background:linear-gradient(105deg,rgba(240,138,155,.85),rgba(245,195,119,.8) 25%,rgba(167,232,192,.75) 50%,rgba(146,196,242,.8) 75%,rgba(199,168,240,.85)); }
+#beamA { top:-60px; right:max(-100px, calc(50% - 320px)); width:300px; height:210px; transform:rotate(-18deg); border-radius:48px; animation:driftA 26s ease-in-out infinite alternate; }
+#beamB { bottom:8%; left:max(-130px, calc(50% - 330px)); width:280px; height:170px; transform:rotate(14deg); border-radius:48px; opacity:.24; animation:driftB 32s ease-in-out infinite alternate; }
+@keyframes driftA { to { transform:rotate(-14deg) translate(-24px,18px); } }
+@keyframes driftB { to { transform:rotate(18deg) translate(30px,-14px); } }
+body::after { content:""; position:fixed; inset:0; z-index:90; pointer-events:none; opacity:.28; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:220px 220px; }
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after { animation:none !important; transition:none !important; }
+  .reveal { opacity:1 !important; transform:none !important; }
+}
+
+/* ---------- screens ---------- */
+.screen { position:absolute; inset:0; z-index:1; display:none; flex-direction:column; padding-top:var(--sat); }
+.screen.active { display:flex; }
+.scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:0 20px; }
+.dock { padding:12px 20px calc(16px + var(--sab)); display:flex; gap:10px; position:relative; z-index:5;
+  background:linear-gradient(transparent, var(--bg) 40%); }
+
+/* ---------- shared bits ---------- */
+.en { font-size:9.5px; letter-spacing:.42em; color:var(--muted); }
+h1.big { font-size:27px; font-weight:200; letter-spacing:.1em; margin-top:6px; }
+h1.big b { font-weight:700; background:var(--prism); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.sub { font-size:12px; color:var(--muted); margin-top:6px; letter-spacing:.03em; }
+.btn-prism { flex:1.6; border-radius:999px; min-height:52px; font-size:15px; font-weight:700; color:#16141F;
+  background:var(--prism); box-shadow:0 10px 34px -8px rgba(199,168,240,.55); letter-spacing:.08em; }
+.btn-prism:active { transform:scale(.97); }
+.btn-ghost { flex:1; border-radius:999px; min-height:52px; border:1px solid rgba(255,255,255,.25);
+  font-size:12.5px; font-weight:600; background:var(--surface); line-height:1.3; }
+.btn-ghost:active { transform:scale(.97); background:var(--surface2); }
+.tag { font-size:9px; font-weight:700; border-radius:999px; padding:2px 8px; letter-spacing:.06em; }
+.tier { color:var(--mint); border:1px solid rgba(167,232,192,.4); }
+.legal { font-size:9.5px; color:var(--dim); text-align:center; padding:14px 12px 6px; letter-spacing:.08em; line-height:1.7; }
+
+/* ---------- toast ---------- */
+#toast { position:fixed; left:50%; bottom:calc(96px + var(--sab)); transform:translateX(-50%) translateY(20px); z-index:120;
+  background:rgba(35,31,50,.95); border:1px solid var(--line); color:var(--ink); font-size:13px; font-weight:500;
+  padding:11px 20px; border-radius:999px; opacity:0; pointer-events:none; transition:.28s; max-width:86%;
+  box-shadow:0 12px 34px rgba(0,0,0,.5); text-align:center; }
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ================= HOME ================= */
+.home-head { padding:14px 0 4px; position:relative; z-index:2; }
+.home-head .rowtop { display:flex; justify-content:space-between; align-items:center; }
+.relink { font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:7px 12px; min-height:32px; }
+.profile-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.pchip { font-size:10px; font-weight:600; color:#D8E4F2; border:1px solid rgba(146,196,242,.3); border-radius:999px; padding:4px 10px; }
+.pchip.warm { color:#F3E6CE; border-color:rgba(245,195,119,.35); }
+.nudge { margin-top:14px; border-radius:18px; padding:12px 14px; background:rgba(245,195,119,.09);
+  border:1px solid rgba(245,195,119,.35); position:relative; z-index:2; width:100%; text-align:left; display:block; }
+.nudge .tt { font-size:9px; letter-spacing:.3em; color:var(--amber); }
+.nudge .ln { font-size:12.5px; line-height:1.65; margin-top:4px; color:#F3E6CE; font-weight:500; }
+.rowlab { font-size:9px; letter-spacing:.3em; color:var(--muted); margin:18px 0 10px; position:relative; z-index:2; }
+.shelf-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; align-items:end; padding:0 2px 12px;
+  border-bottom:1px solid rgba(255,255,255,.14); margin-bottom:6px; position:relative; z-index:2; }
+.shelf-row::after { content:""; position:absolute; bottom:0; left:0; right:0; height:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent); pointer-events:none; }
+.pr { text-align:center; position:relative; padding:10px 2px 4px; border-radius:12px; min-height:96px; }
+.pr:active { background:var(--surface); }
+.pr svg { height:52px; width:38px; }
+.pr .nm { font-size:9.5px; color:#CFC8E0; margin-top:5px; line-height:1.3; font-weight:500; }
+.pr .pao { position:absolute; top:0; right:2px; font-size:8px; font-weight:700; color:#16141F; background:var(--amber);
+  border-radius:999px; padding:2px 6px; box-shadow:0 0 14px rgba(245,195,119,.8); }
+.pr.pulse { animation:pulseGlow 1.1s ease 2; }
+@keyframes pulseGlow { 50% { background:rgba(245,195,119,.14); } }
+.empty { text-align:center; color:var(--muted); font-size:12.5px; line-height:1.8; padding:34px 20px; position:relative; z-index:2; }
+
+/* ================= REC ================= */
+.rec-head { padding:14px 0 2px; position:relative; z-index:2; display:flex; align-items:flex-start; justify-content:space-between; }
+.backbtn { font-size:12px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:8px 14px; min-height:36px; }
+.chips { display:flex; gap:7px; flex-wrap:wrap; margin-top:14px; position:relative; z-index:2; }
+.chip { border:1px solid rgba(255,255,255,.2); background:var(--surface); border-radius:999px; font-size:12.5px;
+  font-weight:500; padding:10px 15px; color:#CFC8E0; min-height:42px; transition:.2s; }
+.chip[aria-pressed="true"] { background:rgba(240,138,155,.16); border-color:var(--rose); color:#FBD3DA; font-weight:700;
+  box-shadow:0 0 18px -2px rgba(240,138,155,.5); }
+.hintcard { margin-top:16px; border-radius:18px; padding:16px; background:var(--surface); border:1px solid var(--line);
+  position:relative; z-index:2; font-size:12.5px; color:var(--muted); line-height:1.8; }
+.hintcard b { color:var(--ink); }
+.hintcard .mini { margin-top:10px; display:inline-block; font-size:12px; font-weight:700; color:#16141F;
+  background:var(--prism); border-radius:999px; padding:9px 18px; min-height:38px; }
+#recResults { position:relative; z-index:2; }
+.thinking { padding:26px 0; text-align:center; }
+.thinkbar { height:4px; border-radius:99px; margin:0 30px 14px; background:var(--surface2); overflow:hidden; position:relative; }
+.thinkbar::after { content:""; position:absolute; top:0; bottom:0; width:45%; border-radius:99px; background:var(--prism); animation:sweep 1s ease-in-out infinite; }
+@keyframes sweep { 0%{left:-45%} 100%{left:100%} }
+.thinking .tx { font-size:11.5px; color:var(--muted); letter-spacing:.08em; }
+.env { margin-top:14px; border-radius:18px; padding:12px 14px; background:rgba(146,196,242,.08); border:1px solid rgba(146,196,242,.3); }
+.env .tt { font-size:9px; letter-spacing:.26em; color:var(--blue); display:flex; justify-content:space-between; align-items:center; }
+.env .tx { font-size:12px; line-height:1.7; margin-top:5px; color:#D8E4F2; }
+.env .tx b { color:var(--mint); font-weight:700; }
+.sect { font-size:10px; letter-spacing:.32em; margin:18px 0 10px; display:flex; align-items:center; gap:10px; }
+.sect .rule { flex:1; border-top:1px solid rgba(255,255,255,.12); }
+.sect.use { color:var(--mint); } .sect.skip { color:var(--rose); } .sect.routine { color:var(--lilac); }
+.item { display:flex; gap:12px; align-items:center; border-radius:18px; padding:11px 14px; margin-bottom:8px;
+  position:relative; background:rgba(255,255,255,.045); width:100%; text-align:left; }
+.item svg { height:38px; width:28px; flex:none; }
+.item .nm { font-size:13px; font-weight:600; }
+.item .why { font-size:11px; color:var(--muted); margin-top:3px; line-height:1.55; }
+.item .why i { font-style:normal; font-size:8.5px; color:var(--mint); border:1px solid rgba(167,232,192,.4); border-radius:999px; padding:0 6px; margin-left:4px; white-space:nowrap; }
+.uselist .item { border:1px solid rgba(167,232,192,.35); box-shadow:0 0 26px -8px rgba(167,232,192,.35); }
+.uselist .item::before { content:""; position:absolute; top:-24px; left:28px; width:34px; height:26px;
+  background:linear-gradient(180deg,rgba(167,232,192,.4),transparent); filter:blur(7px);
+  clip-path:polygon(35% 0,65% 0,100% 100%,0 100%); }
+.skiplist .item { opacity:.62; border:1px solid rgba(240,138,155,.25); }
+.skiplist .item .badge { margin-left:auto; flex:none; font-size:9.5px; font-weight:700; color:var(--rose);
+  border:1px solid rgba(240,138,155,.5); border-radius:999px; padding:3px 9px; }
+.reveal { opacity:0; transform:translateY(10px); animation:rise .45s ease forwards; }
+@keyframes rise { to { opacity:1; transform:none; } }
+.ampm { display:flex; gap:10px; }
+.ampm > div { flex:1; border-radius:18px; padding:12px 13px; }
+.ampm .am { background:linear-gradient(160deg,#F4E8CF,#EAD4A8); color:#4A3E22; }
+.ampm .pm { background:rgba(199,168,240,.12); border:1px solid rgba(199,168,240,.4); color:#E7DCF7; box-shadow:0 0 26px -8px rgba(199,168,240,.4); }
+.ampm .tt { font-size:9px; letter-spacing:.26em; opacity:.75; }
+.ampm .tx { font-size:12px; line-height:1.75; margin-top:5px; font-weight:500; }
+.notecard { margin-top:12px; border-radius:16px; padding:11px 13px; font-size:11.5px; line-height:1.7;
+  background:rgba(240,138,155,.08); border:1px solid rgba(240,138,155,.3); color:#F5D4DA; }
+.notecard.calm { background:rgba(199,168,240,.08); border-color:rgba(199,168,240,.3); color:#E2D7F2; }
+
+/* ================= SCAN ================= */
+#scan { background:#0D0C13; }
+.vf { flex:1; position:relative; margin:18px 20px 8px; border-radius:26px; overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 30%, #232033 0%, #141220 60%, #0D0C13 100%); border:1px solid var(--line); }
+.vf .frame { position:absolute; inset:14% 12%; border-radius:20px; }
+.vf .frame i { position:absolute; width:26px; height:26px; border:2.5px solid rgba(241,237,247,.85); }
+.vf .frame i:nth-child(1){ top:0;left:0; border-right:0;border-bottom:0; border-radius:8px 0 0 0; }
+.vf .frame i:nth-child(2){ top:0;right:0; border-left:0;border-bottom:0; border-radius:0 8px 0 0; }
+.vf .frame i:nth-child(3){ bottom:0;left:0; border-right:0;border-top:0; border-radius:0 0 0 8px; }
+.vf .frame i:nth-child(4){ bottom:0;right:0; border-left:0;border-top:0; border-radius:0 0 8px 0; }
+.vf .sweepline { position:absolute; left:14%; right:14%; height:70px; top:18%;
+  background:linear-gradient(180deg,transparent,rgba(167,232,192,.22) 45%,rgba(146,196,242,.28) 55%,transparent);
+  filter:blur(2px); animation:scanmove 2.6s ease-in-out infinite alternate; }
+@keyframes scanmove { to { top:58%; } }
+.vf .ghostbottle { position:absolute; left:50%; top:48%; transform:translate(-50%,-50%); opacity:.5; }
+.vf .ghostbottle svg { height:120px; width:88px; }
+.vf .hint { position:absolute; bottom:16px; left:0; right:0; text-align:center; font-size:11.5px; color:var(--muted); letter-spacing:.06em; }
+.scan-dock { padding:10px 20px calc(18px + var(--sab)); display:flex; align-items:center; justify-content:space-between; }
+.shutter { width:74px; height:74px; border-radius:50%; background:var(--prism); position:relative; box-shadow:0 0 0 5px rgba(255,255,255,.12), 0 10px 30px -6px rgba(199,168,240,.6); }
+.shutter::after { content:""; position:absolute; inset:6px; border-radius:50%; border:2.5px solid #16141F; }
+.shutter:active { transform:scale(.93); }
+.scan-side { width:88px; font-size:12px; color:var(--muted); text-align:center; min-height:44px; border-radius:12px; }
+
+/* ================= ONBOARDING ================= */
+.ob-top { padding:14px 20px 0; position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; }
+.ob-prog { flex:1; height:3px; border-radius:99px; background:var(--surface2); margin:0 14px; overflow:hidden; }
+.ob-prog i { display:block; height:100%; background:var(--prism); border-radius:99px; transition:width .35s ease; }
+.ob-step-lab { font-size:9.5px; letter-spacing:.2em; color:var(--muted); white-space:nowrap; }
+.ob-q { font-size:23px; font-weight:200; letter-spacing:.05em; margin-top:22px; position:relative; z-index:2; line-height:1.4; }
+.ob-q b { font-weight:700; background:var(--prism); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.ob-why { font-size:12px; color:var(--muted); line-height:1.8; margin-top:9px; position:relative; z-index:2; }
+.ob-opts { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:20px; position:relative; z-index:2; }
+.ob-opt { border-radius:16px; border:1px solid rgba(255,255,255,.18); background:var(--surface); padding:14px 6px;
+  text-align:center; font-size:14.5px; font-weight:500; color:#E4DEF0; min-height:52px; transition:.18s; position:relative; }
+.ob-opt[aria-pressed="true"] { border-color:transparent; color:#16141F; font-weight:700; background:var(--prism);
+  box-shadow:0 8px 28px -6px rgba(199,168,240,.5); }
+.ob-opt.wide { grid-column:1 / -1; }
+.ob-note { margin-top:14px; border-radius:16px; padding:12px 14px; font-size:11.5px; line-height:1.7; position:relative; z-index:2; }
+.ob-note.info { background:rgba(146,196,242,.08); border:1px solid rgba(146,196,242,.3); color:#D8E4F2; }
+.ob-note.warn { background:rgba(240,138,155,.09); border:1px solid rgba(240,138,155,.35); color:#F5D4DA; }
+.selftest { margin-top:12px; position:relative; z-index:2; }
+.selftest > button { font-size:11.5px; color:var(--blue); text-decoration:underline; text-underline-offset:3px; min-height:36px; }
+.selftest .qs { margin-top:8px; border-radius:16px; border:1px solid var(--line); background:var(--surface); padding:12px 14px; }
+.selftest .q { font-size:12px; color:var(--ink); margin-bottom:8px; }
+.selftest .row { display:flex; gap:8px; margin-bottom:10px; }
+.selftest .row button { flex:1; font-size:12px; border:1px solid var(--line); border-radius:999px; padding:8px 0; min-height:38px; color:#CFC8E0; }
+.selftest .row button[aria-pressed="true"] { background:rgba(146,196,242,.18); border-color:var(--blue); color:#D8E4F2; font-weight:700; }
+.wcard { margin-top:16px; border-radius:20px; padding:15px 16px; background:var(--surface); border:1px solid var(--line);
+  position:relative; z-index:2; overflow:hidden; }
+.wcard::before { content:""; position:absolute; top:-30px; right:-30px; width:130px; height:130px; border-radius:50%;
+  background:radial-gradient(circle, rgba(245,195,119,.35), transparent 70%); }
+.wcard .city { font-size:17px; font-weight:600; display:flex; align-items:baseline; gap:8px; }
+.wcard .city span { font-size:26px; font-weight:200; }
+.wcard .cells { display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.wcard .cell { font-size:10px; font-weight:600; color:#D8E4F2; border:1px solid rgba(146,196,242,.35); border-radius:999px; padding:4px 10px; }
+.wcard .note { font-size:11px; color:var(--muted); line-height:1.7; margin-top:10px; }
+.ob-intro { flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 28px; position:relative; z-index:2; text-align:center; }
+.ob-intro .moon { width:56px; height:56px; border-radius:50%; margin:0 auto 22px;
+  background:radial-gradient(circle at 40% 40%, #F7F2E2, #E8DFC8 65%, rgba(232,223,200,0) 75%); box-shadow:0 0 44px 14px rgba(247,242,226,.3); }
+.ob-intro h1 { font-size:26px; font-weight:200; letter-spacing:.12em; line-height:1.5; }
+.ob-intro h1 b { font-weight:700; background:var(--prism); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.ob-intro p { font-size:13px; color:var(--muted); line-height:2; margin-top:16px; }
+.ob-fin { text-align:center; padding-top:26px; position:relative; z-index:2; }
+.ob-fin .sum { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:18px; }
+
+/* ================= SHEET ================= */
+#sheetWrap { position:fixed; inset:0; z-index:100; display:none; }
+#sheetWrap.open { display:block; }
+#sheetWrap .mask { position:absolute; inset:0; background:rgba(8,7,14,.6); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); opacity:0; transition:.25s; }
+#sheetWrap.open .mask { opacity:1; }
+#sheet { position:absolute; left:0; right:0; bottom:0; max-width:480px; margin:0 auto; border-radius:26px 26px 0 0;
+  background:linear-gradient(180deg,#232033,#1A1727); border:1px solid var(--line); border-bottom:0;
+  padding:10px 22px calc(24px + var(--sab)); transform:translateY(102%); transition:transform .32s cubic-bezier(.32,.72,.28,1); }
+#sheetWrap.open #sheet { transform:none; }
+.grab { width:40px; height:4px; border-radius:99px; background:rgba(255,255,255,.22); margin:2px auto 16px; }
+.sh-top { display:flex; gap:16px; align-items:center; }
+.sh-top svg { height:64px; width:48px; flex:none; }
+.sh-top .nm { font-size:17px; font-weight:700; }
+.sh-top .meta { font-size:11.5px; color:var(--muted); margin-top:4px; }
+.sh-ing { margin-top:14px; font-size:12px; color:#D8E4F2; border:1px solid rgba(146,196,242,.3); background:rgba(146,196,242,.07);
+  border-radius:14px; padding:10px 13px; line-height:1.7; }
+.pao-wrap { margin-top:14px; }
+.pao-lab { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:7px; }
+.pao-lab b { color:var(--ink); }
+.pao-bar { height:7px; border-radius:99px; background:var(--surface2); overflow:hidden; }
+.pao-bar i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,var(--mint),var(--amber)); }
+.pao-warn { margin-top:9px; font-size:11.5px; color:#F3E6CE; background:rgba(245,195,119,.09); border:1px solid rgba(245,195,119,.35);
+  border-radius:12px; padding:9px 12px; line-height:1.6; }
+.sh-tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:14px; }
+.sh-tags .tg { font-size:10px; font-weight:600; color:#CFE8D8; border:1px solid rgba(167,232,192,.35); border-radius:999px; padding:4px 10px; }
+.sh-tags .tg.no { color:#F5D4DA; border-color:rgba(240,138,155,.35); }
+.sh-close { margin-top:20px; width:100%; border-radius:999px; min-height:50px; font-size:14px; font-weight:700;
+  color:#16141F; background:var(--prism); }
+
+/* recognize sheet variant */
+.rg-badge { font-size:9px; letter-spacing:.3em; color:var(--mint); margin-bottom:10px; }
+.rg-actions { display:flex; gap:10px; margin-top:20px; }
+</style>
+</head>
+<body>
+<div class="beam" id="beamA"></div>
+<div class="beam" id="beamB"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="b-pump" viewBox="0 0 48 64"><path d="M20 6 h12 v4 h-8 v4 h-4 z" opacity=".85"/><rect x="21" y="14" width="7" height="7" opacity=".6"/><rect x="13" y="21" width="23" height="38" rx="5"/><rect x="17" y="34" width="15" height="13" rx="2" fill="#fff" opacity=".28"/></symbol>
+    <symbol id="b-dropper" viewBox="0 0 48 64"><circle cx="24" cy="7" r="4.5" opacity=".85"/><rect x="20" y="10" width="8" height="12" rx="2.5" opacity=".6"/><rect x="14" y="24" width="20" height="35" rx="5"/><rect x="18" y="36" width="12" height="12" rx="2" fill="#fff" opacity=".28"/></symbol>
+    <symbol id="b-jar" viewBox="0 0 48 64"><rect x="12" y="18" width="24" height="9" rx="3" opacity=".85"/><rect x="9" y="29" width="30" height="30" rx="7"/><rect x="14" y="38" width="20" height="10" rx="2" fill="#fff" opacity=".28"/></symbol>
+    <symbol id="b-tube" viewBox="0 0 48 64"><rect x="18" y="6" width="12" height="8" rx="2" opacity=".85"/><path d="M16 16 h16 l2 36 a6 6 0 0 1 -6 7 h-8 a6 6 0 0 1 -6 -7 z"/><rect x="19" y="30" width="10" height="14" rx="2" fill="#fff" opacity=".28"/></symbol>
+    <symbol id="b-stick" viewBox="0 0 48 64"><rect x="16" y="8" width="16" height="11" rx="3" opacity=".85"/><rect x="18" y="21" width="12" height="38" rx="4"/><rect x="21" y="30" width="6" height="16" rx="2" fill="#fff" opacity=".28"/></symbol>
+    <symbol id="b-pads" viewBox="0 0 48 64"><rect x="10" y="14" width="28" height="8" rx="3" opacity=".85"/><rect x="8" y="24" width="32" height="35" rx="7"/><circle cx="24" cy="41" r="8" fill="#fff" opacity=".28"/></symbol>
+    <linearGradient id="g-mint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#A7E8C0"/><stop offset="1" stop-color="#4E8A68"/></linearGradient>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#92C4F2"/><stop offset="1" stop-color="#5D7FB0"/></linearGradient>
+    <linearGradient id="g-amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5C377"/><stop offset="1" stop-color="#B98A45"/></linearGradient>
+    <linearGradient id="g-lilac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C7A8F0"/><stop offset="1" stop-color="#8465B8"/></linearGradient>
+    <linearGradient id="g-rose" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5C0CB"/><stop offset="1" stop-color="#B06E85"/></linearGradient>
+    <linearGradient id="g-dim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4A465C"/><stop offset="1" stop-color="#332F45"/></linearGradient>
+  </defs>
+</svg>
+
+<!-- ============ HOME ============ -->
+<section class="screen" id="home">
+  <div class="scroll">
+    <div class="home-head">
+      <div class="rowtop">
+        <div>
+          <div class="en">NIGHT PRISM · SHELFIE</div>
+          <h1 class="big" id="greet">晚上好,<b>该护肤了</b></h1>
+        </div>
+        <button class="relink" onclick="startOb(true)" aria-label="重新建档">重新建档</button>
+      </div>
+      <div class="sub" id="shelfCount"></div>
+      <div class="profile-chips" id="profileChips"></div>
+    </div>
+    <button class="nudge" id="nudge" onclick="pulseExpiring()" style="display:none">
+      <div class="tt">快用完 · USE IT UP</div>
+      <div class="ln" id="nudgeLn"></div>
+    </button>
+    <div id="shelfArea"></div>
+    <div style="height:8px"></div>
+  </div>
+  <div class="dock">
+    <button class="btn-prism" onclick="openRec()">该用哪瓶?</button>
+    <button class="btn-ghost" onclick="go('scan')">拍一下<br>加进架子</button>
+  </div>
+</section>
+
+<!-- ============ REC ============ -->
+<section class="screen" id="rec">
+  <div class="scroll">
+    <div class="rec-head">
+      <div>
+        <div class="en">ONLY FROM YOUR SHELF</div>
+        <h1 class="big">该用<b>哪瓶?</b></h1>
+      </div>
+      <button class="backbtn" onclick="go('home')">← 架子</button>
+    </div>
+    <div class="sub">选一个当下的困扰/场合,我只从你架子上有的里挑。</div>
+    <div class="chips" id="concernChips" role="group" aria-label="选择困扰"></div>
+    <div id="recResults"></div>
+    <div style="height:calc(20px + var(--sab))"></div>
+  </div>
+</section>
+
+<!-- ============ SCAN ============ -->
+<section class="screen" id="scan">
+  <div class="rec-head" style="padding:14px 20px 0">
+    <div>
+      <div class="en">SCAN · GEMINI 读瓶身</div>
+      <h1 class="big">拍一下<b>产品</b></h1>
+    </div>
+    <button class="backbtn" onclick="go('home')">← 架子</button>
+  </div>
+  <div class="vf">
+    <div class="frame"><i></i><i></i><i></i><i></i></div>
+    <div class="sweepline"></div>
+    <div class="ghostbottle"><svg><use href="#b-dropper" fill="url(#g-dim)"/></svg></div>
+    <div class="hint" id="scanHint">对准瓶身,让它认出这是什么</div>
+  </div>
+  <div class="scan-dock">
+    <div class="scan-side" aria-hidden="true"></div>
+    <button class="shutter" onclick="doScan()" aria-label="拍照识别"></button>
+    <div class="scan-side">识别是<br>模拟的 · demo</div>
+  </div>
+</section>
+
+<!-- ============ ONBOARDING ============ -->
+<section class="screen" id="ob">
+  <div class="ob-top" id="obTop">
+    <button class="backbtn" id="obBack" onclick="obBack()">←</button>
+    <div class="ob-prog"><i id="obProg" style="width:0%"></i></div>
+    <div class="ob-step-lab" id="obLab"></div>
+  </div>
+  <div class="scroll" id="obBody"></div>
+  <div class="dock" id="obDock">
+    <button class="btn-prism" id="obNext" onclick="obNext()">下一步</button>
+  </div>
+</section>
+
+<!-- ============ SHEET ============ -->
+<div id="sheetWrap" role="dialog" aria-modal="true">
+  <div class="mask" onclick="closeSheet()"></div>
+  <div id="sheet"></div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+/* ---------------- data ---------------- */
+const CATCN = { cleanser:'洁面', serum:'精华', moisturizer:'保湿', sunscreen:'防晒', treatment:'功效', toner:'化妆水', makeup:'彩妆' };
+const GRAD = { cleanser:'g-blue', serum:'g-mint', moisturizer:'g-blue', sunscreen:'g-amber', treatment:'g-lilac', toner:'g-blue', makeup:'g-rose' };
+const GLYPH = { cleanser:'b-pump', serum:'b-dropper', moisturizer:'b-jar', sunscreen:'b-tube', treatment:'b-dropper', toner:'b-pump', makeup:'b-stick' };
+
+const SEED = [
+  {id:'p1',name:'氨基酸温和洁面',brand:'CeraVe',cat:'cleanser',kind:'skincare',ing:'氨基酸表活',concerns:['干燥','换季偏干','熬夜后','上妆前'],avoid:[],why:'温和不拔干,屏障脆弱也能用',opened:2,pao:12},
+  {id:'p2',name:'烟酰胺精华 10%',brand:'The Ordinary',cat:'serum',kind:'skincare',ing:'Niacinamide 烟酰胺',concerns:['冒痘','毛孔'],avoid:[],why:'烟酰胺调理出油、淡化痘印',opened:3,pao:12},
+  {id:'p3',name:'积雪草舒缓精华',brand:'Purito',cat:'serum',kind:'skincare',ing:'Centella 积雪草',concerns:['泛红','熬夜后','换季偏干'],avoid:[],why:'积雪草舒缓泛红、修护屏障',opened:1,pao:12},
+  {id:'p4',name:'玻尿酸保湿霜',brand:'CeraVe',cat:'moisturizer',kind:'skincare',ing:'玻尿酸 + 神经酰胺',concerns:['干燥','泛红','换季偏干','熬夜后','上妆前'],avoid:[],why:'神经酰胺+玻尿酸,补水锁水修屏障',opened:2,pao:12},
+  {id:'p5',name:'金瓶防晒 SPF50',brand:'Anessa',cat:'sunscreen',kind:'skincare',ing:'SPF50+ PA++++',concerns:['上妆前'],avoid:[],why:'日间广谱防晒、妆前打底',opened:4,pao:12},
+  {id:'p6',name:'A醇晚间精华',brand:'Retinol 0.3%',cat:'treatment',kind:'skincare',ing:'Retinol A醇 0.3%',concerns:['毛孔'],avoid:['泛红','干燥','换季偏干','熬夜后'],why:'抗老、改善毛孔(仅晚间)',skipWhy:'屏障弱/泛红/干燥时叠加易刺激',opened:5,pao:6},
+  {id:'p7',name:'水杨酸棉片',brand:'COSRX BHA',cat:'treatment',kind:'skincare',ing:'Salicylic Acid 水杨酸',concerns:['冒痘','毛孔'],avoid:['泛红','干燥','换季偏干'],why:'水杨酸疏通毛孔、控痘',skipWhy:'泛红/干燥时用酸会刺激',opened:3,pao:6},
+  {id:'p8',name:'自然遮瑕',brand:'IPSA',cat:'makeup',kind:'makeup',ing:'色号 NC20 自然',concerns:['上妆前'],avoid:[],why:'局部遮瑕、修饰肤色',opened:6,pao:12},
+];
+const POOL = [
+  {id:'x1',name:'B5 修护精华',brand:'La Roche-Posay',cat:'serum',kind:'skincare',ing:'Panthenol 泛醇 B5',concerns:['泛红','熬夜后','换季偏干'],avoid:[],why:'B5 修护屏障、镇定',opened:0,pao:12},
+  {id:'x2',name:'清爽保湿凝露',brand:'Belif',cat:'moisturizer',kind:'skincare',ing:'补水凝露质地',concerns:['上妆前','熬夜后','冒痘'],avoid:[],why:'清爽补水,闷热天友好',opened:0,pao:12},
+];
+const CONCERNS = ['冒痘','泛红','干燥','熬夜后','上妆前','换季偏干','毛孔'];
+const ROUTINE = {
+  '冒痘':{am:'洁面 → 烟酰胺精华 → 防晒',pm:'洁面 → 水杨酸棉片(局部)→ 保湿霜'},
+  '泛红':{am:'温和洁面 → 积雪草精华 → 防晒',pm:'洁面 → 积雪草精华 → 保湿霜(今晚避开酸类和A醇)'},
+  '干燥':{am:'氨基酸洁面 → 保湿霜 → 防晒',pm:'洁面 → 积雪草精华 → 保湿霜(厚涂)'},
+  '熬夜后':{am:'温和洁面 → 积雪草精华 → 保湿霜 → 防晒',pm:'洁面 → 积雪草精华 → 保湿霜(今晚跳过刺激成分)'},
+  '上妆前':{am:'保湿霜(薄涂) → 防晒 → 遮瑕(局部)'},
+  '换季偏干':{am:'氨基酸洁面 → 保湿霜 → 防晒',pm:'洁面 → 积雪草精华 → 保湿霜(减少酸类频率)'},
+  '毛孔':{am:'洁面 → 烟酰胺精华 → 防晒',pm:'洁面 → 水杨酸棉片 或 A醇(隔天用,别叠加)→ 保湿霜'},
+};
+const CITY_WEATHER = {
+  '上海':{temp:33,humidity:82,uv:8,season:'梅雨/夏',tag:'闷热高湿',mod:'heat'},
+  '北京':{temp:8,humidity:30,uv:3,season:'秋冬',tag:'干冷',mod:'dry_cold'},
+  '洛杉矶':{temp:26,humidity:35,uv:9,season:'夏',tag:'干热·紫外强',mod:'uv_dry'},
+  '伦敦':{temp:11,humidity:75,uv:2,season:'秋',tag:'湿冷',mod:'cold'},
+};
+/* evidence-graded env rules (ONBOARDING.md §4) — oil control keys off TEMPERATURE, not humidity */
+const ENV_NUDGE = {
+  heat:{text:'当地闷热易出汗——油/痘的主因是<b>气温+汗</b>,不是"湿度"。选<b>清爽质地</b>,别过度清洁。',evidence:'高温→皮脂 +10%/°C · T1',boost:['p2','x2'],boostWhy:'当地闷热,清爽/控油优先'},
+  dry_cold:{text:'当地干冷——重点<b>修屏障+保湿</b>,趁半干上脸;减少酸/A醇频次。',evidence:'低湿→↑TEWL 屏障受损 · T1',boost:['p4','p3'],boostWhy:'当地干冷,先补屏障'},
+  uv_dry:{text:'当地紫外线强且偏干——<b>强化防晒</b>,叠加保湿。',evidence:'UV→光老化/DNA损伤 · T1/AAD',boost:['p5','p4'],boostWhy:'当地 UV 强,防晒+保湿'},
+  cold:{text:'当地湿冷、冷热交替——<b>屏障+防潮红</b>,减少酸类。',evidence:'寒冷→干燥+潮红诱因 · AAD',boost:['p4','p3'],boostWhy:'当地湿冷,舒缓保湿'},
+};
+
+/* ---------------- state ---------------- */
+const LS = 'shelfie-np-v2';
+let state = { products: SEED.map(p=>({...p})), pool:[...POOL.map(p=>p.id)], profile:null, obDone:false };
+try { const saved = JSON.parse(localStorage.getItem(LS)); if (saved && saved.products) state = saved; } catch(e){}
+function save(){ try { localStorage.setItem(LS, JSON.stringify(state)); } catch(e){} }
+function $(id){ return document.getElementById(id); }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2200); }
+function esc(s){ return s.replace(/</g,'&lt;'); }
+
+/* ---------------- nav ---------------- */
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+  document.querySelectorAll('.scroll').forEach(s=>{ if ($(id).contains(s)) s.scrollTop=0; });
+}
+
+/* ---------------- home ---------------- */
+function monthsLeft(p){ return p.pao - p.opened; }
+function bottleSvg(p, extra){ return `<svg ${extra||''} aria-hidden="true"><use href="#${GLYPH[p.cat]||'b-dropper'}" fill="url(#${GRAD[p.cat]||'g-mint'})"/></svg>`; }
+function renderHome(){
+  const P = state.products;
+  const hour = new Date().getHours();
+  $('greet').innerHTML = hour < 6  ? '夜深了,<b>轻一点</b>' :
+                         hour < 12 ? '早安,<b>先防晒</b>' :
+                         hour < 18 ? '下午好,<b>看看架子</b>' : '晚上好,<b>该护肤了</b>';
+  const w = state.profile?.weather;
+  $('shelfCount').textContent = `我的架子 · ${P.length} 件` + (state.profile?.city ? ` · ${state.profile.city} ${w.season}` : '');
+  const pc = $('profileChips');
+  if (state.profile) {
+    const pr = state.profile;
+    pc.innerHTML = [
+      pr.skinType && `<span class="pchip">${pr.skinType}肤</span>`,
+      ...pr.concerns.map(c=>`<span class="pchip">${c}</span>`),
+      pr.city && `<span class="pchip warm">${pr.city} ${w.temp}° · ${w.tag}</span>`,
+      pr.safety.length ? `<span class="pchip" style="color:#F5D4DA;border-color:rgba(240,138,155,.4)">已标记:建议面诊</span>` : '',
+    ].filter(Boolean).join('');
+  } else {
+    pc.innerHTML = `<span class="pchip warm">还没建档 — 建档后按你的肤质和当地天气推</span>`;
+  }
+  const exp = P.filter(p=>monthsLeft(p)<=2);
+  if (exp.length) {
+    $('nudge').style.display='block';
+    $('nudgeLn').textContent = exp.map(p=>`${p.name} 还剩 ${monthsLeft(p)} 个月`).join(' · ') + '——先用完它们。';
+  } else $('nudge').style.display='none';
+
+  const area = $('shelfArea');
+  if (!P.length) { area.innerHTML = `<div class="empty">架子还空着。<br>点下面「拍一下」,把你已有的产品拍进来。</div>`; return; }
+  const skincare = P.filter(p=>p.kind==='skincare' && p.cat!=='treatment');
+  const rest = P.filter(p=>p.cat==='treatment' || p.kind==='makeup');
+  const row = (items)=> `<div class="shelf-row">` + items.map(p=>{
+    const l = monthsLeft(p);
+    return `<button class="pr" data-id="${p.id}" onclick="openProduct('${p.id}')" aria-label="${esc(p.name)}">
+      ${l<=2?`<span class="pao">剩${l}个月</span>`:''}
+      ${bottleSvg(p)}
+      <div class="nm">${esc(p.name)}</div>
+    </button>`;
+  }).join('') + `</div>`;
+  const chunk = (arr)=>{ const out=[]; for(let i=0;i<arr.length;i+=4) out.push(arr.slice(i,i+4)); return out; };
+  area.innerHTML =
+    (skincare.length? `<div class="rowlab">SKINCARE · 基础护肤</div>` + chunk(skincare).map(row).join('') : '') +
+    (rest.length? `<div class="rowlab">TREATMENT + 彩妆</div>` + chunk(rest).map(row).join('') : '');
+}
+function pulseExpiring(){
+  state.products.filter(p=>monthsLeft(p)<=2).forEach(p=>{
+    const el = document.querySelector(`.pr[data-id="${p.id}"]`);
+    if (el){ el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+  });
+  toast('高亮了快用完的——优先用它们');
+}
+
+/* ---------------- product sheet ---------------- */
+function openProduct(id){
+  const p = state.products.find(x=>x.id===id); if(!p) return;
+  const left = monthsLeft(p), pct = Math.max(4, Math.min(100, left/p.pao*100));
+  $('sheet').innerHTML = `
+    <div class="grab"></div>
+    <div class="sh-top">
+      ${bottleSvg(p)}
+      <div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="meta">${esc(p.brand)} · ${CATCN[p.cat]} · ${p.kind==='makeup'?'彩妆':'护肤'}</div>
+      </div>
+    </div>
+    <div class="sh-ing">关键成分/规格:${esc(p.ing)}<br>${esc(p.why)}</div>
+    <div class="pao-wrap">
+      <div class="pao-lab"><span>开封 ${p.opened} 个月 · PAO ${p.pao} 个月</span><b>还剩约 ${left} 个月</b></div>
+      <div class="pao-bar"><i style="width:${pct}%"></i></div>
+      ${left<=2?`<div class="pao-warn">⏳ 快到开封保质期了——优先用它,别浪费。</div>`:''}
+    </div>
+    <div class="sh-tags">
+      ${p.concerns.map(c=>`<span class="tg">适合 · ${c}</span>`).join('')}
+      ${p.avoid.map(c=>`<span class="tg no">${c}时先别用</span>`).join('')}
+    </div>
+    <button class="sh-close" onclick="closeSheet()">知道了</button>`;
+  $('sheetWrap').classList.add('open');
+}
+function closeSheet(){ $('sheetWrap').classList.remove('open'); }
+
+/* ---------------- rec ---------------- */
+let currentConcern = null;
+function openRec(){ go('rec'); renderChips(); if (!currentConcern) renderRecIntro(); }
+function renderChips(){
+  $('concernChips').innerHTML = CONCERNS.map(c=>
+    `<button class="chip" aria-pressed="${c===currentConcern}" onclick="pickConcern('${c}')">${c}</button>`).join('');
+}
+function renderRecIntro(){
+  const pr = state.profile;
+  $('recResults').innerHTML = pr ? `
+    <div class="hintcard">按你的档案(<b>${pr.skinType}肤${pr.concerns.length?' · '+pr.concerns.join('/'):''}</b>${pr.city?` · <b>${pr.city}</b>`:''})+ 架子上这 ${state.products.length} 件来挑。<br>选一个上面的困扰试试。</div>` : `
+    <div class="hintcard">还没建档——现在也能按架子推,但<b>建档后会按你的肤质、在用成分和当地天气调整</b>,更准。
+      <br><button class="mini" onclick="startOb(false)">先建档(约 1 分钟)</button></div>`;
+}
+function pickConcern(c){
+  currentConcern = c; renderChips();
+  $('recResults').innerHTML = `
+    <div class="thinking">
+      <div class="thinkbar"></div>
+      <div class="tx">在你的架子上挑,只推你有的…</div>
+    </div>`;
+  clearTimeout(pickConcern._t);
+  pickConcern._t = setTimeout(()=>renderRecResult(c), 850);
+}
+function recommend(c){
+  const P = state.products, pr = state.profile;
+  let excludedStrong = false;
+  const skincareOnly = c !== '上妆前';               /* R2: 皮肤困扰 → 候选池只有 skincare */
+  let cand = P.filter(p => skincareOnly ? p.kind==='skincare' : true);
+  let use  = cand.filter(p=>p.concerns.includes(c));
+  let skip = cand.filter(p=>p.avoid.includes(c));
+  const notes = [];
+  if (pr) {
+    const sensitive = pr.skinType==='敏感' || pr.sensitive;
+    if (sensitive && c!=='泛红') {
+      const strong = use.filter(p=>/A醇|维A|视黄醇|Retinol|水杨酸|果酸|杏仁酸|AHA|BHA/i.test(p.ing+p.name));
+      strong.forEach(p=>{ use = use.filter(x=>x!==p); if(!skip.includes(p)) skip.push(p); p._skipNote='你标了易敏感——强活性先谨慎'; });
+      if (strong.length) { excludedStrong = true; notes.push({cls:'calm', tx:'你标了<b>易敏感/过敏史</b>:酸类和A醇先从推荐里挪去"先别用",想上强活性先小面积试。'}); }
+    }
+    if (pr.actives.length && ['冒痘','毛孔'].includes(c))
+      notes.push({cls:'calm', tx:`你正在用 <b>${pr.actives.join('、')}</b>——别再叠加同类酸/A醇,隔天错开用。`});
+    if (pr.safety.length)
+      notes.push({cls:'', tx:`你标记了「${pr.safety.join('、')}」——<b>建议先看皮肤科面诊</b>,下面只做温和整理,不含功效性建议。`});
+  }
+  if (c==='冒痘' && P.some(p=>p.kind==='makeup'))
+    notes.push({cls:'', tx:'想遮?<b>遮瑕只遮不治</b>——处理痘看上面"用这些";上妆另选「上妆前」。'});   /* R5 纠偏 */
+  /* R7: 输出层校验 — skincare concern 的结果里过滤 makeup */
+  if (skincareOnly) { use = use.filter(p=>p.kind==='skincare'); skip = skip.filter(p=>p.kind==='skincare'); }
+  /* env boost 排序 */
+  const w = pr?.weather, env = w ? ENV_NUDGE[w.mod] : null;
+  if (env) use.sort((a,b)=>(env.boost.includes(b.id)?1:0)-(env.boost.includes(a.id)?1:0));
+  if (c==='上妆前') { const ord = ['sunscreen','makeup','moisturizer','cleanser']; use.sort((a,b)=>ord.indexOf(a.cat)-ord.indexOf(b.cat)); }
+  return { use: use.slice(0,3), skip, notes, env, w, excludedStrong };
+}
+function renderRecResult(c){
+  const r = recommend(c);
+  const itemHtml = (p, skipMode) => `
+    <button class="item" onclick="openProduct('${p.id}')">
+      ${bottleSvg(p)}
+      <div style="min-width:0">
+        <div class="nm">${esc(p.name)} · ${esc(p.brand)}</div>
+        <div class="why">${esc(skipMode ? (p._skipNote || p.skipWhy || '这个困扰下先停几天') : p.why)}${!skipMode && r.env && r.env.boost.includes(p.id) ? `<i>${r.env.boostWhy}</i>` : ''}</div>
+      </div>
+      ${skipMode?`<span class="badge">今晚跳过</span>`:''}
+    </button>`;
+  const rt = {...(ROUTINE[c] || {})};
+  if (r.excludedStrong && rt.pm && /酸|A醇/.test(rt.pm)) rt.pm += '(你易敏感——酸类/A醇那步先跳过)';
+  let i = 0; const d = () => `style="animation-delay:${(i++)*70}ms"`;
+  $('recResults').innerHTML = `
+    ${r.env ? `<div class="env reveal" ${d()}>
+      <div class="tt"><span>环境 · ${state.profile.city} ${r.w.temp}°C ${r.w.season}</span><span class="tag tier">${r.env.evidence}</span></div>
+      <div class="tx">${r.env.text}</div></div>` : ''}
+    ${r.notes.map(n=>`<div class="notecard ${n.cls} reveal" ${d()}>${n.tx}</div>`).join('')}
+    <div class="sect use reveal" ${d()}>用这些<span class="rule"></span></div>
+    <div class="uselist">${r.use.length ? r.use.map(p=>`<div class="reveal" ${d()}>${itemHtml(p,false)}</div>`).join('') :
+      `<div class="hintcard reveal" ${d()}>架子上暂时没有对口「${c}」的——先做基础保湿+防晒,下次扫新品时我帮你对着买。</div>`}</div>
+    ${r.skip.length ? `<div class="sect skip reveal" ${d()}>先别用<span class="rule"></span></div>
+    <div class="skiplist">${r.skip.map(p=>`<div class="reveal" ${d()}>${itemHtml(p,true)}</div>`).join('')}</div>` : ''}
+    ${rt.am||rt.pm ? `<div class="sect routine reveal" ${d()}>简单早晚<span class="rule"></span></div>
+    <div class="ampm reveal" ${d()}>
+      ${rt.am?`<div class="am"><div class="tt">AM · 早</div><div class="tx">${rt.am}</div></div>`:''}
+      ${rt.pm?`<div class="pm"><div class="tt">PM · 晚</div><div class="tx">${rt.pm}</div></div>`:''}
+    </div>` : ''}
+    <div class="legal reveal" ${d()}>仅供参考,非医疗建议。严重痘痘/感染/过敏/术后不适请及时就医。</div>`;
+}
+
+/* ---------------- scan ---------------- */
+function doScan(){
+  const hint = $('scanHint');
+  if (!state.pool.length) {
+    hint.textContent = '示例都扫完啦——真机版由 Gemini 现场读瓶身';
+    toast('demo 里内置了 2 个示例识别');
+    return;
+  }
+  hint.textContent = '识别中… Gemini 在读瓶身';
+  setTimeout(()=>{
+    const id = state.pool[0];
+    const p = POOL.find(x=>x.id===id);
+    $('sheet').innerHTML = `
+      <div class="grab"></div>
+      <div class="rg-badge">识别到 · RECOGNIZED</div>
+      <div class="sh-top">
+        ${bottleSvg(p)}
+        <div>
+          <div class="nm">${esc(p.name)}</div>
+          <div class="meta">${esc(p.brand)} · ${CATCN[p.cat]} · ${esc(p.ing)}</div>
+        </div>
+      </div>
+      <div class="sh-ing">适合:${p.concerns.join(' / ')}。${esc(p.why)}。<br>加进架子后,「该用哪瓶」就会把它算进候选。</div>
+      <div class="rg-actions">
+        <button class="btn-ghost" onclick="closeSheet();$('scanHint').textContent='对准瓶身,让它认出这是什么'">取消</button>
+        <button class="btn-prism" onclick="confirmAdd('${p.id}')">＋ 加进架子</button>
+      </div>`;
+    $('sheetWrap').classList.add('open');
+  }, 1100);
+}
+function confirmAdd(id){
+  const p = POOL.find(x=>x.id===id);
+  state.products.push({...p});
+  state.pool = state.pool.filter(x=>x!==id);
+  save(); closeSheet(); renderHome(); go('home');
+  $('scanHint').textContent = '对准瓶身,让它认出这是什么';
+  toast(`「${p.name}」上架啦 ✓`);
+}
+
+/* ---------------- onboarding ---------------- */
+const OB_STEPS = [
+  {key:'intro'},
+  {key:'skinType', type:'single', q:'你的肤质是?', why:'决定质地耐受和成分起点。不确定的话,下面有 2 题自测。', opts:['干性','油性','混合','敏感','中性'], selftest:true},
+  {key:'concerns', type:'multi', max:2, q:'最想解决的<b>护肤困扰</b>?', why:'定向成分——这里只放护肤困扰;遮盖/上妆属于彩妆,不混在这里(最多选 2 个)。', opts:['冒痘','泛红','干燥','出油/毛孔','熬夜后','换季偏干']},
+  {key:'actives', type:'multi', q:'正在用的功效成分?', why:'防叠加冲突、避免刺激(比如 A醇 和酸类别一起上脸)。', opts:['A醇/维A','酸类','维C','都没有'], sensitiveToggle:true},
+  {key:'city', type:'single', q:'你在<b>哪个城市</b>?', why:'用当地气候(气温/湿度/紫外/季节)调整推荐——基于皮肤科研究,不是拍脑袋。', opts:['上海','北京','洛杉矶','伦敦']},
+  {key:'safety', type:'multi', q:'有以下情况吗?(如实勾选)', why:'涉及安全:命中会建议先看皮肤科医生,App 只做温和整理,不替代诊断。', opts:['孕期/哺乳','正在看皮肤科/用处方药','当前有严重痘/破损/感染','以上都没有']},
+  {key:'done'},
+];
+let obStep = 0, obData = null, obFromHome = false;
+function startOb(fromHome){
+  obFromHome = fromHome;
+  obStep = 0;
+  obData = { skinType:null, concerns:[], actives:[], sensitive:false, city:null, safety:[] };
+  if (state.profile) {
+    const pr = state.profile;
+    obData = { skinType:pr.skinType, concerns:[...pr.concerns], actives:[...pr.actives], sensitive:!!pr.sensitive, city:pr.city, safety:[...pr.safety] };
+  }
+  go('ob'); renderOb();
+}
+function obRender_intro(){
+  $('obBody').innerHTML = `
+    <div class="ob-intro">
+      <div class="moon"></div>
+      <h1>多告诉我一点,<br><b>推得越准</b></h1>
+      <p>接下来 5 小步:肤质 · 困扰 · 在用成分 · 城市天气 · 安全。<br>每一条推荐都基于研究,不是瞎猜;<br>而且只从<b>你架子上有的</b>里挑。</p>
+      <button style="margin-top:22px;font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;min-height:40px" onclick="obSkip()">先逛逛,以后再建档</button>
+    </div>`;
+}
+function obRender_done(){
+  const w = CITY_WEATHER[obData.city];
+  $('obBody').innerHTML = `
+    <div class="ob-fin">
+      <div class="en">PROFILE READY</div>
+      <h1 class="big" style="margin-top:14px">档案<b>建好了</b></h1>
+      <div class="sum">
+        <span class="pchip">${obData.skinType}肤</span>
+        ${obData.concerns.map(c=>`<span class="pchip">${c}</span>`).join('')}
+        ${obData.actives.length?`<span class="pchip">在用:${obData.actives.join('、')}</span>`:''}
+        ${obData.sensitive?`<span class="pchip" style="color:#F5D4DA;border-color:rgba(240,138,155,.4)">易敏感</span>`:''}
+        <span class="pchip warm">${obData.city} ${w.temp}° · ${w.tag}</span>
+      </div>
+      <p class="sub" style="margin-top:18px; line-height:1.9">你的架子(${state.products.length} 件)就是推荐候选池。<br>皮肤有状况时,去「该用哪瓶」。</p>
+      ${obData.safety.filter(x=>!x.includes('没有')).length?`<div class="ob-note warn" style="text-align:left">你勾选了「${obData.safety.join('、')}」——建议先看皮肤科医生面诊;App 只做一般整理,不替代诊断。</div>`:''}
+    </div>`;
+}
+function renderOb(){
+  const s = OB_STEPS[obStep];
+  const pct = Math.round(obStep/(OB_STEPS.length-1)*100);
+  $('obProg').style.width = pct+'%';
+  $('obLab').textContent = s.key==='intro' ? '建档' : s.key==='done' ? '完成' : `${obStep} / ${OB_STEPS.length-2}`;
+  $('obBack').style.visibility = obStep===0 ? 'hidden' : 'visible';
+  $('obNext').textContent = s.key==='intro' ? '开始' : s.key==='done' ? '进我的架子 →' : (obStep===OB_STEPS.length-2 ? '完成 ✓' : '下一步');
+  if (s.key==='intro') return obRender_intro();
+  if (s.key==='done')  return obRender_done();
+  const sel = obData[s.key];
+  const on = o => s.type==='single' ? sel===o : sel.includes(o);
+  let extra = '';
+  if (s.selftest) extra += `
+    <div class="selftest" id="selftest">
+      <button onclick="toggleSelftest()">不确定?自测 2 题 →</button>
+      <div class="qs" style="display:none">
+        <div class="q">1 · 洁面后 10 分钟,什么都不涂,脸会紧绷吗?</div>
+        <div class="row">
+          <button aria-pressed="false" onclick="stAns(this,'tight',1)">会紧绷</button>
+          <button aria-pressed="false" onclick="stAns(this,'tight',0)">不会</button>
+        </div>
+        <div class="q">2 · 到下午,T 区(额头/鼻子)明显出油吗?</div>
+        <div class="row">
+          <button aria-pressed="false" onclick="stAns(this,'oil',1)">明显出油</button>
+          <button aria-pressed="false" onclick="stAns(this,'oil',0)">不明显</button>
+        </div>
+        <div class="q" id="stResult" style="margin:0;color:var(--mint)"></div>
+      </div>
+    </div>`;
+  if (s.sensitiveToggle) extra += `
+    <div class="ob-opts" style="margin-top:12px">
+      <button class="ob-opt wide" aria-pressed="${obData.sensitive}" onclick="obData.sensitive=!obData.sensitive;renderOb()">容易敏感 / 有过敏史 ${obData.sensitive?'✓':''}</button>
+    </div>`;
+  if (s.key==='city' && obData.city) {
+    const w = CITY_WEATHER[obData.city];
+    extra += `
+    <div class="wcard">
+      <div class="city">📍 ${obData.city} <span>${w.temp}°</span></div>
+      <div class="cells"><span class="cell">湿度 ${w.humidity}%</span><span class="cell">UV ${w.uv}</span><span class="cell">${w.season}</span><span class="cell">${w.tag}</span></div>
+      <div class="note">推荐会据此调整质地和重点(比如闷热天走清爽、干冷天先修屏障)——每条都带研究出处。</div>
+    </div>`;
+  }
+  if (s.key==='concerns' && obData.concerns.length)
+    extra += `<div class="ob-note info">已选 ${obData.concerns.length}/2${obData.concerns.includes('泛红')?' · 选了泛红:后面会默认帮你避开酸类/A醇':''}</div>`;
+  if (s.key==='safety') {
+    const ser = obData.safety.filter(x=>x!=='以上都没有');
+    if (ser.length) extra += `<div class="ob-note warn">⚠️ 你勾选了「${ser.join('、')}」——建议先看皮肤科医生面诊;推荐里会自动排除刺激性功效成分。</div>`;
+  }
+  $('obBody').innerHTML = `
+    <div class="ob-q">${s.q}</div>
+    <div class="ob-why">${s.why}</div>
+    <div class="ob-opts">${s.opts.map(o=>`<button class="ob-opt" aria-pressed="${on(o)}" onclick="obToggle('${s.key}','${o}')">${o}</button>`).join('')}</div>
+    ${extra}
+    <div style="height:20px"></div>`;
+}
+function toggleSelftest(){
+  const qs = document.querySelector('#selftest .qs');
+  qs.style.display = qs.style.display==='none' ? 'block' : 'none';
+}
+const stState = {};
+function stAns(btn, k, v){
+  stState[k]=v;
+  [...btn.parentElement.children].forEach(b=>b.setAttribute('aria-pressed','false'));
+  btn.setAttribute('aria-pressed','true');
+  if ('tight' in stState && 'oil' in stState) {
+    const guess = stState.tight&&stState.oil ? '混合' : stState.tight ? '干性' : stState.oil ? '油性' : '中性';
+    obData.skinType = guess;
+    document.getElementById('stResult').textContent = `→ 更像「${guess}」,帮你选好了(可改)`;
+    document.querySelectorAll('.ob-opts .ob-opt').forEach(b=>b.setAttribute('aria-pressed', b.textContent.trim().startsWith(guess) ? 'true':'false'));
+  }
+}
+function obToggle(key, val){
+  const s = OB_STEPS[obStep];
+  if (s.type==='single') obData[key]=val;
+  else {
+    const arr = obData[key], i = arr.indexOf(val);
+    if (i>=0) arr.splice(i,1);
+    else {
+      if (s.max && arr.length>=s.max) { toast(`最多选 ${s.max} 个`); return; }
+      if (val.includes('没有')) { obData[key]=[val]; renderOb(); return; }
+      const idx = arr.findIndex(x=>x.includes('没有')); if (idx>=0) arr.splice(idx,1);
+      arr.push(val);
+    }
+  }
+  renderOb();
+}
+function obNext(){
+  const s = OB_STEPS[obStep];
+  if (s.key==='done') { finishOb(); return; }
+  if (s.type==='single' && !obData[s.key]) { toast('选一个吧'); return; }
+  if (s.type==='multi' && !obData[s.key].length) { toast('至少选一个(没有就选"都没有")'); return; }
+  obStep++; renderOb();
+  $('obBody').closest('.screen').querySelector('.scroll').scrollTop = 0;
+}
+function obBack(){ if (obStep>0) { obStep--; renderOb(); } }
+function obSkip(){ state.obDone=true; save(); renderHome(); go('home'); toast('随时可以点右上「重新建档」'); }
+function finishOb(){
+  state.profile = {
+    skinType: obData.skinType,
+    concerns: obData.concerns.filter(c=>!c.includes('没有')),
+    actives: obData.actives.filter(a=>!a.includes('没有')),
+    sensitive: obData.sensitive,
+    city: obData.city,
+    weather: CITY_WEATHER[obData.city],
+    safety: obData.safety.filter(x=>x!=='以上都没有'),
+  };
+  state.obDone = true;
+  currentConcern = null;
+  save(); renderHome(); go('home');
+  toast('档案建好啦 ✓ 去「该用哪瓶」试试');
+}
+
+/* ---------------- boot ---------------- */
+renderHome();
+if (!state.obDone) startOb(false); else go('home');
+</script>
+</body>
+</html>
