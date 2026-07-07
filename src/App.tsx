@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Camera, Sparkles, Plane, Info, X, ChevronRight, Calendar, 
-  Search, Heart, User, Check, AlertCircle, Plus, ChevronLeft, 
-  Moon, Sun, ArrowRight, Settings, Sliders, CheckSquare, RefreshCw
+  Camera, Sparkles, Plane, Info, X, Calendar,
+  Heart, Check, AlertCircle, Plus,
+  ArrowRight, Sliders, CheckSquare, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { addMonths, format, parseISO } from 'date-fns';
+import { addMonths, differenceInDays, format, parseISO } from 'date-fns';
 import { Bottle } from './components/Bottle';
+import { EmptyCabinetState } from './components/EmptyCabinetState';
+import { GuestAccountPromptCard, GuestAccountPromptSheet } from './components/GuestAccountPrompt';
+import { HomeSummary } from './components/HomeSummary';
+import { ProfileCompletionPrompt } from './components/ProfileCompletionPrompt';
 import { Scanner } from './components/Scanner';
 import { Shelf } from './components/Shelf';
-import { Product, SkinProfile, ScanResult, VerdictResult, TravelResult } from './types';
+import { AccountPromptState, AccountPromptTrigger, Product, SkinProfile, ScanResult, VerdictResult, TravelResult } from './types';
 import { getVerdict, getTravelList } from './api';
 
 // --- DEMO INITIAL DATA ---
 const demoProfile: SkinProfile = {
-  skinType: 'combination',
-  sensitivities: ['fragrance'],
-  currentActives: ['niacinamide'],
-  city: '上海',
+  skinType: null,
+  sensitivities: [],
+  currentActives: [],
+  city: '',
 };
 
 const demoInventory: Product[] = [
@@ -67,6 +71,33 @@ const categoryLabels: Record<string, string> = {
   'Cleanser': '洁面乳',
 };
 
+const coreRoutineCategories = ['Cleanser', 'Moisturizer', 'Sunscreen'] as const;
+
+const initialAccountPromptState: AccountPromptState = {
+  activeTrigger: null,
+  dismissedTriggers: [],
+  eligibleTriggers: [],
+  showModal: false,
+};
+
+const accountPromptCopy: Record<AccountPromptTrigger, { benefits: string[]; description: string; title: string }> = {
+  'first-product': {
+    title: '已经获得第一轮价值，可以提示未来保存入口了',
+    description: '你已经成功把产品放进柜子。下一步真正值得做的账号能力，是保存、同步和跨设备继续使用。',
+    benefits: ['保存你的 cabinet', '跨设备同步柜子', '后续接入到期开封提醒'],
+  },
+  'ai-advice': {
+    title: 'AI 建议已经产生，未来可以在这里承接账号入口',
+    description: '现在用户已经感受到 inventory-aware AI 的价值，后续账号提示可以用来保存历史建议和个性化设置。',
+    benefits: ['保存 AI 历史建议', '同步肤质与敏感信息', '让后续推荐更连贯'],
+  },
+  'travel-plan': {
+    title: '出行建议已经有价值，未来可以在这里引导注册',
+    description: '用户已经得到了基于现有柜子的打包建议，后续账号入口可以承接保存清单和跨次旅行复用。',
+    benefits: ['保存 travel packing 清单', '同步你的常用柜子', '为后续提醒和个性化做准备'],
+  },
+};
+
 export default function App() {
   // Navigation tabs
   const [tab, setTab] = useState<'shelf' | 'explore' | 'ai' | 'routine'>('shelf');
@@ -100,6 +131,7 @@ export default function App() {
 
   // Add Product from Explore
   const [addingExploreProd, setAddingExploreProd] = useState<CuratedProduct | null>(null);
+  const [accountPrompt, setAccountPrompt] = useState<AccountPromptState>(initialAccountPromptState);
 
   // Time for mock phone status bar
   const [currentTime, setCurrentTime] = useState('09:41');
@@ -113,6 +145,48 @@ export default function App() {
     const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const unlockAccountPrompt = (trigger: AccountPromptTrigger) => {
+    setAccountPrompt((currentPrompt) => {
+      const eligibleTriggers = currentPrompt.eligibleTriggers.includes(trigger)
+        ? currentPrompt.eligibleTriggers
+        : [...currentPrompt.eligibleTriggers, trigger];
+
+      return currentPrompt.dismissedTriggers.includes(trigger)
+        ? { ...currentPrompt, eligibleTriggers }
+        : { ...currentPrompt, activeTrigger: trigger, eligibleTriggers };
+    });
+  };
+
+  const closeAccountPromptModal = () => {
+    setAccountPrompt((currentPrompt) => ({ ...currentPrompt, showModal: false }));
+  };
+
+  const dismissAccountPrompt = () => {
+    setAccountPrompt((currentPrompt) => {
+      if (!currentPrompt.activeTrigger) {
+        return { ...currentPrompt, showModal: false };
+      }
+
+      const dismissedTriggers = currentPrompt.dismissedTriggers.includes(currentPrompt.activeTrigger)
+        ? currentPrompt.dismissedTriggers
+        : [...currentPrompt.dismissedTriggers, currentPrompt.activeTrigger];
+      const remainingTriggers = currentPrompt.eligibleTriggers.filter(
+        (trigger) => !dismissedTriggers.includes(trigger),
+      );
+
+      return {
+        ...currentPrompt,
+        activeTrigger: remainingTriggers.length > 0 ? remainingTriggers[remainingTriggers.length - 1] : null,
+        dismissedTriggers,
+        showModal: false,
+      };
+    });
+  };
+
+  const openAccountPromptModal = () => {
+    setAccountPrompt((currentPrompt) => ({ ...currentPrompt, showModal: true }));
+  };
 
   // --- Handlers ---
   const handleScanSuccess = (res: ScanResult) => {
@@ -136,8 +210,10 @@ export default function App() {
       status: 'active'
     };
 
-    setInventory([newProduct, ...inventory]);
+    setInventory(currentInventory => [newProduct, ...currentInventory]);
     setScanResult(null);
+    unlockAccountPrompt('first-product');
+    setTab('shelf');
     setView('home');
   };
 
@@ -163,8 +239,9 @@ export default function App() {
       status: 'active'
     };
 
-    setInventory([newProduct, ...inventory]);
+    setInventory(currentInventory => [newProduct, ...currentInventory]);
     setAddingExploreProd(null);
+    unlockAccountPrompt('first-product');
     // Visual feedback
     setTab('shelf');
   };
@@ -187,6 +264,7 @@ export default function App() {
           verdict: res 
         }
       ]);
+      unlockAccountPrompt('ai-advice');
     } catch (err: any) {
       setChatMessages([
         ...updatedMessages,
@@ -214,6 +292,7 @@ export default function App() {
     try {
       const res = await getTravelList(profile, inventory, destination, days);
       setTravelRes(res);
+      unlockAccountPrompt('travel-plan');
     } catch (err) {
       alert("错误: " + err);
     }
@@ -223,10 +302,11 @@ export default function App() {
   const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const skinType = fd.get('skinType') as SkinProfile['skinType'];
+    const skinTypeValue = fd.get('skinType') as string;
     const sensitivitiesString = fd.get('sensitivities') as string;
     const activesString = fd.get('currentActives') as string;
     const city = fd.get('city') as string;
+    const skinType = skinTypeValue ? skinTypeValue as Exclude<SkinProfile['skinType'], null> : null;
 
     const sensitivities = sensitivitiesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
     const currentActives = activesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
@@ -239,14 +319,37 @@ export default function App() {
   const filteredInventory = categoryFilter === 'All' 
     ? inventory 
     : inventory.filter(p => p.category === categoryFilter);
+  const isEmptyCabinet = inventory.length === 0;
+  const hasValueMoment = inventory.length > 0 || chatMessages.length > 1 || travelRes !== null;
+  const requiredProfileComplete = profile.skinType !== null && profile.sensitivities.length > 0;
+  const improveLaterProfileComplete = profile.currentActives.length > 0 || profile.city.trim().length > 0;
+  const shouldPromptProfileCompletion = hasValueMoment && !requiredProfileComplete;
+  const activeAccountPromptTrigger = accountPrompt.activeTrigger && !accountPrompt.dismissedTriggers.includes(accountPrompt.activeTrigger)
+    ? accountPrompt.activeTrigger
+    : null;
+  const activeAccountPromptCopy = activeAccountPromptTrigger ? accountPromptCopy[activeAccountPromptTrigger] : null;
+  const inventoryExpiryState = inventory
+    .map((product) => ({
+      product,
+      daysUntilExpiry: differenceInDays(parseISO(product.expiryDate), new Date()),
+    }))
+    .sort((left, right) => left.daysUntilExpiry - right.daysUntilExpiry);
+  const expiredProducts = inventoryExpiryState
+    .filter(({ daysUntilExpiry }) => daysUntilExpiry < 0)
+    .map(({ product }) => product);
+  const expiringProducts = inventoryExpiryState
+    .filter(({ daysUntilExpiry }) => daysUntilExpiry >= 0 && daysUntilExpiry <= 30)
+    .map(({ product }) => product);
+  const highlightedSummaryIds = expiredProducts.length > 0
+    ? expiredProducts.map(({ id }) => id)
+    : expiringProducts.map(({ id }) => id);
+  const missingCoreCategories = coreRoutineCategories
+    .filter((category) => !inventory.some((product) => product.category === category))
+    .map((category) => categoryLabels[category]);
 
   // Expiration calculation helper
-  const soonCount = inventory.filter(p => {
-    const expiry = parseISO(p.expiryDate);
-    const today = new Date();
-    const diff = (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-    return diff > 0 && diff <= 30;
-  }).length;
+  const soonCount = expiringProducts.length;
+  const expiredCount = expiredProducts.length;
 
   return (
     <div className="min-h-screen bg-[#F3EFE9] flex items-center justify-center font-sans py-0 md:py-8 antialiased">
@@ -282,7 +385,7 @@ export default function App() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3D7D52]/10 border border-[#3D7D52]/20 rounded-full text-[11px] text-[#3D7D52] font-semibold shadow-2xs hover:bg-[#3D7D52]/15 active:scale-95 transition-all"
               >
                 <Sliders className="w-3 h-3" />
-                <span>{skinTypeLabels[profile.skinType]} · {profile.sensitivities[0] || '温和'}</span>
+                <span>{profile.skinType ? skinTypeLabels[profile.skinType] : '补充肤质'} · {profile.sensitivities[0] || '待补敏感项'}</span>
               </button>
             </div>
           </header>
@@ -304,52 +407,72 @@ export default function App() {
                 {/* 1. CABINET / SHELF TAB */}
                 {tab === 'shelf' && (
                   <div className="px-4 py-2 space-y-4">
-                    {/* Summary Banner */}
-                    <div className="bg-white p-4 rounded-3xl border border-stone-100 shadow-2xs flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <p className="text-xs text-stone-400 font-medium">已收纳护肤品</p>
-                        <p className="text-xl font-bold text-stone-800 tracking-tight">{inventory.length} <span className="text-sm font-normal text-stone-500">款</span></p>
-                      </div>
-                      <div className="h-8 w-px bg-stone-100" />
-                      <div className="space-y-0.5 text-right">
-                        <p className="text-xs text-stone-400 font-medium">临期预警</p>
-                        <p className="text-xl font-bold text-amber-600 tracking-tight flex items-center gap-1 justify-end">
-                          {soonCount} <span className="text-sm font-normal text-stone-500">款</span>
-                          {soonCount > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Category Scroll Menu */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 select-none">
-                      {Object.entries(categoryLabels).map(([key, label]) => (
-                        <button
-                          key={key}
-                          onClick={() => setCategoryFilter(key)}
-                          className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                            categoryFilter === key 
-                              ? 'bg-stone-800 text-white shadow-sm' 
-                              : 'bg-white text-stone-500 border border-stone-100 hover:text-stone-800'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Shelf Content */}
-                    {filteredInventory.length > 0 ? (
-                      <Shelf 
-                        inventory={filteredInventory} 
-                        onProductClick={(p) => setSelectedProduct(p)} 
+                    {isEmptyCabinet ? (
+                      <EmptyCabinetState
+                        onScan={() => setView('scan')}
+                        onExplore={() => setTab('explore')}
                       />
                     ) : (
-                      <div className="py-16 text-center space-y-3">
-                        <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
-                          <Info className="w-6 h-6" />
+                      <>
+                        {shouldPromptProfileCompletion && (
+                          <ProfileCompletionPrompt
+                            title="先补最关键的肤质信息，让后续建议更靠谱"
+                            description="现在已经可以正常用 cabinet 了。补充肤质和敏感成分后，AI 建议会更接近真实使用场景。"
+                            emphasizedFields={['肤质', '敏感成分']}
+                            onOpen={() => setShowProfileModal(true)}
+                          />
+                        )}
+
+                        {activeAccountPromptCopy && (
+                          <GuestAccountPromptCard
+                            title={activeAccountPromptCopy.title}
+                            description={activeAccountPromptCopy.description}
+                            onOpen={openAccountPromptModal}
+                            onDismiss={dismissAccountPrompt}
+                          />
+                        )}
+
+                        <HomeSummary
+                          productCount={inventory.length}
+                          soonCount={soonCount}
+                          expiredCount={expiredCount}
+                          missingCoreCategories={missingCoreCategories}
+                          onScan={() => setView('scan')}
+                        />
+
+                        {/* Category Scroll Menu */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 select-none">
+                          {Object.entries(categoryLabels).map(([key, label]) => (
+                            <button
+                              key={key}
+                              onClick={() => setCategoryFilter(key)}
+                              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                                categoryFilter === key
+                                  ? 'bg-stone-800 text-white shadow-sm'
+                                  : 'bg-white text-stone-500 border border-stone-100 hover:text-stone-800'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
                         </div>
-                        <p className="text-xs text-stone-400 font-medium">此类别下暂无收纳，点击下方「拍照」扫码添加一个吧！</p>
-                      </div>
+
+                        {/* Shelf Content */}
+                        {filteredInventory.length > 0 ? (
+                          <Shelf
+                            inventory={filteredInventory}
+                            onProductClick={(p) => setSelectedProduct(p)}
+                            highlightedIds={categoryFilter === 'All' ? highlightedSummaryIds : []}
+                          />
+                        ) : (
+                          <div className="py-16 text-center space-y-3">
+                            <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
+                              <Info className="w-6 h-6" />
+                            </div>
+                            <p className="text-xs text-stone-400 font-medium">此类别下暂无收纳，点击上方继续扫码添加吧。</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -421,6 +544,24 @@ export default function App() {
                 {/* 3. AI ADVISOR TAB (Matches Image 1) */}
                 {tab === 'ai' && (
                   <div className="flex flex-col h-full px-4 py-2 gap-4">
+                    {shouldPromptProfileCompletion && (
+                      <ProfileCompletionPrompt
+                        title="在问 AI 前，先补一点基础档案"
+                        description="这里不拦你继续提问，但如果先补肤质和敏感成分，AI 会更少给出泛化建议。"
+                        emphasizedFields={['肤质', '敏感成分']}
+                        onOpen={() => setShowProfileModal(true)}
+                      />
+                    )}
+
+                    {activeAccountPromptTrigger === 'ai-advice' && activeAccountPromptCopy && (
+                      <GuestAccountPromptCard
+                        title={activeAccountPromptCopy.title}
+                        description={activeAccountPromptCopy.description}
+                        onOpen={openAccountPromptModal}
+                        onDismiss={dismissAccountPrompt}
+                      />
+                    )}
+
                     {/* Chat Bubble Scrollable Area */}
                     <div className="flex-1 space-y-4 overflow-y-auto max-h-[460px] pr-1">
                       {chatMessages.map((msg, idx) => (
@@ -543,6 +684,15 @@ export default function App() {
                 {/* 4. ROUTINE & TRAVEL TAB (Matches Image 5 Timeline) */}
                 {tab === 'routine' && (
                   <div className="px-4 py-2 space-y-4">
+                    {activeAccountPromptTrigger === 'travel-plan' && activeAccountPromptCopy && (
+                      <GuestAccountPromptCard
+                        title={activeAccountPromptCopy.title}
+                        description={activeAccountPromptCopy.description}
+                        onOpen={openAccountPromptModal}
+                        onDismiss={dismissAccountPrompt}
+                      />
+                    )}
+
                     {/* Sub-tab selection */}
                     <div className="bg-white p-1 rounded-xl flex border border-stone-100 shadow-3xs">
                       <button
@@ -965,13 +1115,41 @@ export default function App() {
                 {/* Remove product button */}
                 <button
                   onClick={() => {
-                    setInventory(inventory.filter(i => i.id !== selectedProduct.id));
+                    setInventory(currentInventory => currentInventory.filter(i => i.id !== selectedProduct.id));
                     setSelectedProduct(null);
                   }}
                   className="w-full mt-6 py-3 border border-rose-150 hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-xl active:scale-95 transition-all text-center"
                 >
                   从化妆柜中移除该产品
                 </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {accountPrompt.showModal && activeAccountPromptCopy && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end justify-center"
+              onClick={closeAccountPromptModal}
+            >
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full"
+              >
+                <GuestAccountPromptSheet
+                  title={activeAccountPromptCopy.title}
+                  description={activeAccountPromptCopy.description}
+                  benefits={activeAccountPromptCopy.benefits}
+                  onClose={closeAccountPromptModal}
+                />
               </motion.div>
             </motion.div>
           )}
@@ -1005,11 +1183,19 @@ export default function App() {
                   <X className="w-4 h-4" />
                 </button>
 
-                <h3 className="text-base font-bold text-stone-800 mb-5">配置您的肤质画像</h3>
+                <div className="mb-5 space-y-1">
+                  <h3 className="text-base font-bold text-stone-800">逐步补充你的肤质档案</h3>
+                  <p className="text-xs leading-5 text-stone-500">
+                    本批次不做阻塞式 onboarding。先填最关键的肤质和敏感成分，城市和强效成分属于 improve-later。
+                  </p>
+                </div>
 
                 <form onSubmit={handleUpdateProfile} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] text-stone-400 font-bold uppercase">基本肤质</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-stone-400 font-bold uppercase">基本肤质</label>
+                      <span className="text-[10px] font-semibold text-[#5F8B68]">建议先补</span>
+                    </div>
                     <div className="grid grid-cols-4 gap-2">
                       {['dry', 'oily', 'combination', 'normal'].map(type => (
                         <label 
@@ -1025,7 +1211,7 @@ export default function App() {
                             type="radio" 
                             name="skinType" 
                             value={type} 
-                            defaultChecked={profile.skinType === type}
+                            checked={profile.skinType === type}
                             className="sr-only" 
                             onChange={() => setProfile({ ...profile, skinType: type as SkinProfile['skinType'] })}
                           />
@@ -1036,7 +1222,10 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] text-stone-400 font-bold uppercase">敏感成分 (逗号隔开)</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-stone-400 font-bold uppercase">敏感成分 (逗号隔开)</label>
+                      <span className="text-[10px] font-semibold text-[#5F8B68]">建议先补</span>
+                    </div>
                     <input 
                       name="sensitivities" 
                       defaultValue={profile.sensitivities.join(', ')}
@@ -1046,7 +1235,10 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] text-stone-400 font-bold uppercase">当前在用的强效成分</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-stone-400 font-bold uppercase">当前在用的强效成分</label>
+                      <span className="text-[10px] font-semibold text-stone-400">improve later</span>
+                    </div>
                     <input 
                       name="currentActives" 
                       defaultValue={profile.currentActives.join(', ')}
@@ -1056,13 +1248,22 @@ export default function App() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] text-stone-400 font-bold uppercase">您当前所在城市</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-stone-400 font-bold uppercase">您当前所在城市</label>
+                      <span className="text-[10px] font-semibold text-stone-400">可稍后再补</span>
+                    </div>
                     <input 
                       name="city" 
                       defaultValue={profile.city}
                       className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-stone-400 shadow-3xs" 
                     />
                   </div>
+
+                  {improveLaterProfileComplete && (
+                    <div className="rounded-2xl border border-[#DCE8DF] bg-[#F4F8F4] px-3 py-2 text-[11px] leading-5 text-[#5F8B68]">
+                      你已经补了 improve-later 信息。当前真正还影响建议质量的，是把肤质和敏感成分补完整。
+                    </div>
+                  )}
 
                   <button 
                     type="submit"

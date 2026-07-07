@@ -36,7 +36,7 @@ export function Shelf({ inventory, onProductClick, highlightedIds = [], dimUnsel
   });
 
   return (
-    <div className="grid grid-cols-3 gap-3 p-1">
+    <div className="grid grid-cols-3 gap-3 p-1 pb-10">
       {sortedInventory.map(product => {
         const isHighlighted = highlightedIds.includes(product.id);
         const shouldDim = dimUnselected && !isHighlighted;

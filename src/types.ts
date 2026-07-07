@@ -1,5 +1,5 @@
 export type SkinProfile = {
-  skinType: 'dry' | 'oily' | 'combination' | 'normal';
+  skinType: 'dry' | 'oily' | 'combination' | 'normal' | null;
   sensitivities: string[];
   currentActives: string[];
   city: string;
@@ -34,4 +34,13 @@ export type VerdictResult = {
 export type TravelResult = {
   selectedIds: string[];
   reason: string;
+};
+
+export type AccountPromptTrigger = 'first-product' | 'ai-advice' | 'travel-plan';
+
+export type AccountPromptState = {
+  activeTrigger: AccountPromptTrigger | null;
+  dismissedTriggers: AccountPromptTrigger[];
+  eligibleTriggers: AccountPromptTrigger[];
+  showModal: boolean;
 };

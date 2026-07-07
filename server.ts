@@ -1,10 +1,95 @@
 import express from "express";
 import path from "path";
+import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 
-// Initialize Gemini SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+dotenv.config({ path: ".env.local", override: true });
+dotenv.config();
+
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
+
+type Product = {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+  keyIngredients: string[];
+  paoMonths: number;
+  openedDate: string;
+  expiryDate: string;
+  bottle: {
+    shape: string;
+    colorHex: string;
+  };
+  status: "active" | "expiring" | "expired";
+};
+
+type SkinProfile = {
+  skinType: "dry" | "oily" | "combination" | "normal" | null;
+  sensitivities: string[];
+  currentActives: string[];
+  city: string;
+};
+
+const categoryPriority = ["Cleanser", "Toner", "Serum", "Moisturizer", "Sunscreen"];
+
+function mockVerdict(profile: SkinProfile, inventory: Product[], condition: string) {
+  const lowerCondition = condition.toLowerCase();
+  const recommended = new Set<string>();
+  const avoid = new Set<string>();
+
+  const sunscreen = inventory.find((product) => product.category === "Sunscreen");
+  const moisturizer = inventory.find((product) => product.category === "Moisturizer");
+  const toner = inventory.find((product) => product.category === "Toner");
+  const cleanser = inventory.find((product) => product.category === "Cleanser");
+  const serums = inventory.filter((product) => product.category === "Serum");
+
+  if (lowerCondition.includes("热") || lowerCondition.includes("油") || lowerCondition.includes("晒")) {
+    if (cleanser) recommended.add(cleanser.id);
+    if (sunscreen) recommended.add(sunscreen.id);
+    serums.slice(1).forEach((product) => avoid.add(product.id));
+  } else if (lowerCondition.includes("敏感") || lowerCondition.includes("红") || lowerCondition.includes("紧绷")) {
+    if (moisturizer) recommended.add(moisturizer.id);
+    if (toner) recommended.add(toner.id);
+    const fragranceSensitive = profile.sensitivities.some((item) => item.toLowerCase().includes("fragrance") || item.includes("香精"));
+    if (fragranceSensitive) {
+      serums.slice(1).forEach((product) => avoid.add(product.id));
+    }
+  } else {
+    if (cleanser) recommended.add(cleanser.id);
+    if (moisturizer) recommended.add(moisturizer.id);
+    if (sunscreen) recommended.add(sunscreen.id);
+  }
+
+  if (recommended.size === 0) {
+    inventory
+      .slice()
+      .sort((left, right) => categoryPriority.indexOf(left.category) - categoryPriority.indexOf(right.category))
+      .slice(0, 2)
+      .forEach((product) => recommended.add(product.id));
+  }
+
+  return {
+    recommendedIds: Array.from(recommended),
+    avoidIds: Array.from(avoid),
+    reason: "当前为本地 mock AI 建议，用于无 key 状态下测试交互。建议优先使用温和、保湿和日间防护类产品；补充真实 Gemini key 后可获得更细的个性化分析。",
+  };
+}
+
+function mockTravel(profile: SkinProfile, inventory: Product[], destination: string, days: number) {
+  const selectedIds = categoryPriority
+    .map((category) => inventory.find((product) => product.category === category))
+    .filter((product): product is Product => Boolean(product))
+    .slice(0, 5)
+    .map((product) => product.id);
+
+  return {
+    selectedIds,
+    reason: `当前为本地 mock travel 建议，用于无 key 状态下测试。已按 ${days} 天出行优先保留清洁、保湿、防晒和一到两个精华类产品；补上真实 Gemini key 后会再结合目的地 ${destination} 输出更细的说明。`,
+  };
+}
 
 async function startServer() {
   const app = express();
@@ -17,6 +102,12 @@ async function startServer() {
 
   app.post("/api/scan", async (req, res) => {
     try {
+      if (!ai) {
+        return res.status(503).json({
+          error: "Gemini API 未配置。请在 .env.local 设置 GEMINI_API_KEY 后再测试真实扫描。",
+        });
+      }
+
       const { imageBase64 } = req.body;
       if (!imageBase64) {
         return res.status(400).json({ error: "Missing imageBase64" });
@@ -89,8 +180,11 @@ async function startServer() {
   });
 
   app.post("/api/verdict", async (req, res) => {
+    const { profile, inventory, condition } = req.body;
     try {
-      const { profile, inventory, condition } = req.body;
+      if (!ai) {
+        return res.json(mockVerdict(profile, inventory, condition));
+      }
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -128,13 +222,16 @@ async function startServer() {
       res.json(JSON.parse(response.text || "{}"));
     } catch (error: any) {
       console.error("Error in /api/verdict:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Failed to get verdict" });
     }
   });
 
   app.post("/api/travel", async (req, res) => {
+    const { profile, inventory, destination, days } = req.body;
     try {
-      const { profile, inventory, destination, days } = req.body;
+      if (!ai) {
+        return res.json(mockTravel(profile, inventory, destination, days));
+      }
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -169,7 +266,7 @@ async function startServer() {
       res.json(JSON.parse(response.text || "{}"));
     } catch (error: any) {
       console.error("Error in /api/travel:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Failed to get travel list" });
     }
   });
 
