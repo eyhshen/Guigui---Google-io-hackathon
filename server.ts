@@ -31,6 +31,8 @@ type SkinProfile = {
   sensitivities: string[];
   currentActives: string[];
   city: string;
+  concerns: string[];
+  safetyFlags: string[];
 };
 
 const categoryPriority = ["Cleanser", "Toner", "Serum", "Moisturizer", "Sunscreen"];

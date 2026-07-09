@@ -21,6 +21,8 @@ const demoProfile: SkinProfile = {
   sensitivities: [],
   currentActives: [],
   city: '',
+  concerns: [],
+  safetyFlags: [],
 };
 
 const demoInventory: Product[] = [
@@ -330,7 +332,7 @@ export default function App() {
     const sensitivities = sensitivitiesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
     const currentActives = activesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
 
-    setProfile({ skinType, sensitivities, currentActives, city });
+    setProfile(currentProfile => ({ ...currentProfile, skinType, sensitivities, currentActives, city }));
     setShowProfileModal(false);
   };
 

@@ -3,6 +3,8 @@ export type SkinProfile = {
   sensitivities: string[];
   currentActives: string[];
   city: string;
+  concerns: string[];
+  safetyFlags: string[];
 };
 
 export type ProductShape = 'pump' | 'tube' | 'jar' | 'dropper' | 'spray' | 'stick' | 'bottle';
