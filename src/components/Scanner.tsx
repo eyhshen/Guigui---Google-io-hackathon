@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, RefreshCw, Upload, Sparkles, HelpCircle } from 'lucide-react';
+import { Icon } from '../np/ui';
 import { scanProductImage } from '../api';
 import { ScanResult } from '../types';
 
@@ -8,6 +8,13 @@ interface ScannerProps {
   onScanSuccess: (result: ScanResult) => void;
   onCancel: () => void;
 }
+
+const CORNERS = [
+  { top: '15%', left: '13%', edges: ['top', 'left'], r: '10px 0 0 0' },
+  { top: '15%', right: '13%', edges: ['top', 'right'], r: '0 10px 0 0' },
+  { bottom: '15%', left: '13%', edges: ['bottom', 'left'], r: '0 0 0 10px' },
+  { bottom: '15%', right: '13%', edges: ['bottom', 'right'], r: '0 0 10px 0' },
+] as const;
 
 export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
   const webcamRef = useRef<Webcam>(null);
@@ -62,110 +69,98 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
   };
 
   return (
-    <div className="absolute inset-0 z-50 bg-stone-950 flex flex-col">
-      <div className="relative flex-1 overflow-hidden flex flex-col justify-between">
-        
-        {/* Webcam View */}
+    <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', flexDirection: 'column', background: 'var(--bg-scan)' }}>
+      {/* Top bar: back + eyebrow */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0' }}>
+        <button
+          onClick={onCancel}
+          style={{ font: 'inherit', fontSize: 12, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer' }}
+        >
+          返回
+        </button>
+        <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+          SCAN · AI 空间感知扫描
+        </span>
+      </div>
+
+      {/* Viewfinder */}
+      <div style={{ flex: 1, position: 'relative', margin: '16px 20px 6px', borderRadius: 26, overflow: 'hidden', background: 'radial-gradient(120% 90% at 50% 30%, #232033 0%, #141220 60%, #0D0C13 100%)', border: '1px solid var(--line)' }}>
         {!permissionError ? (
-          /* @ts-ignore */
+          // @ts-ignore react-webcam ref typing
           <Webcam
             audio={false}
             ref={webcamRef}
             screenshotFormat="image/jpeg"
-            videoConstraints={{ facingMode: "environment" }}
+            videoConstraints={{ facingMode: 'environment' }}
             onUserMediaError={onUserMediaError}
-            className="absolute inset-0 w-full h-full object-cover opacity-60"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-900 p-8 text-center text-white/90">
-            <HelpCircle className="w-12 h-12 text-stone-400 mb-4 animate-pulse" />
-            <p className="text-sm font-semibold mb-2">未检测到相机或权限受限</p>
-            <p className="text-xs text-stone-400 max-w-xs leading-relaxed">
-              在 iframe 预览环境中，浏览器默认会阻止摄像头调用。建议点击下方「上传照片」或直接在独立标签页中打开本应用。
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center', color: 'var(--ink)' }}>
+            <Icon name="HelpCircle" size={44} style={{ color: 'var(--dim)', marginBottom: 16 }} />
+            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>未检测到相机或权限受限</p>
+            <p style={{ fontSize: 11.5, color: 'var(--muted)', maxWidth: 280, lineHeight: 1.7 }}>
+              第一次使用时浏览器会询问相机权限，请点「允许」。如果之前拒绝过，需要在浏览器地址栏的站点设置里重新开启相机；也可以直接点下方「上传照片」。
             </p>
           </div>
         )}
-        
-        {/* Overlay guides */}
-        {!permissionError && (
-          <div className="absolute inset-0 border-[45px] border-stone-950/70 flex items-center justify-center pointer-events-none">
-            <div className="w-full h-1/2 border border-white/40 rounded-3xl relative">
-              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-white rounded-tl-xl -mt-0.5 -ml-0.5"></div>
-              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-white rounded-tr-xl -mt-0.5 -mr-0.5"></div>
-              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-white rounded-bl-xl -mb-0.5 -ml-0.5"></div>
-              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-white rounded-br-xl -mb-0.5 -mr-0.5"></div>
-            </div>
+
+        {/* Corner guides */}
+        {!permissionError && CORNERS.map((c, i) => (
+          <i key={i} style={{
+            position: 'absolute', width: 26, height: 26, borderRadius: c.r,
+            top: (c as any).top, bottom: (c as any).bottom, left: (c as any).left, right: (c as any).right,
+            borderStyle: 'solid', borderColor: 'rgba(241,237,247,.85)', borderWidth: 0,
+            ...(c.edges.includes('top' as never) ? { borderTopWidth: 2.5 } : {}),
+            ...(c.edges.includes('bottom' as never) ? { borderBottomWidth: 2.5 } : {}),
+            ...(c.edges.includes('left' as never) ? { borderLeftWidth: 2.5 } : {}),
+            ...(c.edges.includes('right' as never) ? { borderRightWidth: 2.5 } : {}),
+          }} />
+        ))}
+
+        {/* Error / helper caption at viewfinder bottom */}
+        {error ? (
+          <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--on-prism)', background: 'rgba(240,138,155,.9)', borderRadius: 14, padding: '9px 14px', backdropFilter: 'blur(8px)' } as React.CSSProperties}>
+            {error}
+          </div>
+        ) : (
+          <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center', fontSize: 11.5, color: 'var(--muted)', letterSpacing: '.04em' }}>
+            {isScanning ? '识别中… Gemini 在读瓶身' : '对准化妆品正面或标签，让它认出这是什么'}
           </div>
         )}
+      </div>
 
-        {/* Top bar */}
-        <div className="relative z-10 p-6 flex justify-between items-start">
-          <button 
-            onClick={onCancel}
-            className="px-4 py-2 bg-black/40 text-white rounded-full text-xs font-medium backdrop-blur-md hover:bg-white hover:text-stone-900 transition-colors shadow-sm"
-          >
-            返回
-          </button>
-          
-          <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] text-white/80 font-medium uppercase tracking-wider">
-            AI 空间感知扫描
-          </div>
+      {/* Bottom controls: upload · shutter · caption */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px calc(18px + var(--sab))' }}>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isScanning}
+          style={{ width: 92, font: 'inherit', fontSize: 11.5, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left', opacity: isScanning ? 0.5 : 1 }}
+        >
+          <Icon name={isScanning ? 'RefreshCw' : 'Upload'} size={15} />
+          {permissionError ? '本地相册' : '上传照片'}
+        </button>
+
+        <button
+          onClick={captureAndScan}
+          aria-label="拍照识别"
+          disabled={isScanning || permissionError}
+          style={{ width: 74, height: 74, borderRadius: '50%', background: 'var(--prism)', border: 'none', cursor: isScanning || permissionError ? 'default' : 'pointer', position: 'relative', boxShadow: 'var(--shutter-ring)', opacity: permissionError ? 0.4 : 1 }}
+        >
+          <span style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '2.5px solid var(--on-prism)' }} />
+        </button>
+
+        <div style={{ width: 92, fontSize: 11, color: 'var(--dim)', textAlign: 'right', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+          {isScanning ? '✨ AI 解析\n包装信息…' : '秒级分析品牌\n成分及 PAO'}
         </div>
 
-        {/* Bottom controls */}
-        <div className="relative z-10 p-8 flex flex-col items-center justify-end bg-gradient-to-t from-stone-950 via-stone-950/60 to-transparent">
-          {error && (
-            <div className="mb-6 mx-4 px-4 py-3 bg-red-500/90 text-white text-xs font-medium rounded-2xl text-center backdrop-blur-md shadow-lg max-w-xs">
-              {error}
-            </div>
-          )}
-          
-          <div className="flex items-center gap-6 mb-6">
-            {/* Native camera trigger */}
-            {!permissionError && (
-              <button
-                onClick={captureAndScan}
-                disabled={isScanning}
-                className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center border-2 border-white backdrop-blur-sm active:scale-95 transition-transform shadow-xl"
-              >
-                {isScanning ? (
-                  <RefreshCw className="w-6 h-6 text-white animate-spin" />
-                ) : (
-                  <div className="w-11 h-11 bg-white rounded-full shadow-inner" />
-                )}
-              </button>
-            )}
-
-            {/* File Upload Trigger */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isScanning}
-              className="flex items-center gap-2 bg-white text-stone-900 font-medium text-xs px-5 py-3 rounded-full hover:bg-stone-100 shadow-lg active:scale-95 transition-all"
-            >
-              {isScanning ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
-              {permissionError ? '本地相册选择 / 拍摄' : '上传照片识别'}
-            </button>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              accept="image/*" 
-              className="hidden" 
-            />
-          </div>
-          
-          <p className="text-white/60 text-xs text-center max-w-xs leading-relaxed">
-            {isScanning 
-              ? '✨ AI 正在为您深度解析包装信息...' 
-              : '对准化妆品正面或上传标签图，秒级自动分析品牌、成分及PAO。'
-            }
-          </p>
-        </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept="image/*"
+          style={{ display: 'none' }}
+        />
       </div>
     </div>
   );

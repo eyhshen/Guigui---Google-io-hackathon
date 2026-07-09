@@ -1,994 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Camera, Sparkles, Plane, Info, X, Calendar,
-  Heart, Check, Plus,
-  ArrowRight, Sliders
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { addMonths, differenceInDays, format, parseISO } from 'date-fns';
-import { AiAdvisorTab } from './components/AiAdvisorTab';
-import { Bottle } from './components/Bottle';
-import { GuestAccountPromptSheet } from './components/GuestAccountPrompt';
-import { RoutineTravelTab } from './components/RoutineTravelTab';
-import { Scanner } from './components/Scanner';
+/* Shelfie app shell — ported from design ui_kits/shelfie/index.html.
+   Logo header · icon TabBar · BottomSheet routing · real /api (verdict/travel/scan). */
+import React from 'react';
+import { PrismBackground, TabBar, BottomSheet, Toast, Icon } from './np/ui';
 import { ShelfTab } from './components/ShelfTab';
-import { AccountPromptState, AccountPromptTrigger, ChatMessage, Product, SkinProfile, ScanResult, TravelResult } from './types';
+import { ExploreTab } from './components/ExploreTab';
+import { AiAdvisorTab } from './components/AiAdvisorTab';
+import { RoutineTab } from './components/RoutineTab';
+import { Scanner } from './components/Scanner';
+import { EmptyCabinet } from './components/prompts';
+import { ProductSheetBody, MenuSheetBody, ProfileModalBody, AccountSheetBody, AddDate } from './components/Sheets';
+import {
+  demoInventory, demoProfile, accountPromptCopy, expiryStatus, addMonthsFromMonth, CuratedProduct,
+} from './data';
 import { getVerdict, getTravelList } from './api';
+import { Product, SkinProfile, ScanResult, ChatMessage, TravelResult, AccountPromptTrigger } from './types';
 
-// --- DEMO INITIAL DATA ---
-const demoProfile: SkinProfile = {
-  skinType: null,
-  sensitivities: [],
-  currentActives: [],
-  city: '',
-};
+type S = React.CSSProperties;
 
-const demoInventory: Product[] = [
-  { id: '1', name: '小褐瓶特润修护精华', brand: 'Estee Lauder', category: 'Serum', keyIngredients: ['二裂酵母', '透明质酸', '多肽'], paoMonths: 24, openedDate: '2025-01-01', expiryDate: '2027-01-01', bottle: { shape: 'dropper', colorHex: '#8B5A2B' }, status: 'active' },
-  { id: '2', name: 'Lotion P50 爽肤水', brand: 'Biologique Recherche', category: 'Toner', keyIngredients: ['水杨酸', '乳酸', '植酸'], paoMonths: 12, openedDate: '2025-10-01', expiryDate: '2026-10-01', bottle: { shape: 'bottle', colorHex: '#D2B48C' }, status: 'active' },
-  { id: '3', name: '修护保湿润肤乳', brand: 'CeraVe', category: 'Moisturizer', keyIngredients: ['神经酰胺', '透明质酸'], paoMonths: 12, openedDate: '2025-08-01', expiryDate: '2026-08-01', bottle: { shape: 'pump', colorHex: '#00599C' }, status: 'active' },
-  { id: '4', name: '水饱饱 B5 保湿精华', brand: 'Drunk Elephant', category: 'Serum', keyIngredients: ['维生素B5', '菠萝神经酰胺'], paoMonths: 12, openedDate: '2026-02-01', expiryDate: '2027-02-01', bottle: { shape: 'pump', colorHex: '#40E0D0' }, status: 'active' },
-  { id: '5', name: '无感隐形防晒乳 SPF40', brand: 'Supergoop!', category: 'Sunscreen', keyIngredients: ['红藻提取物', '草本精粹'], paoMonths: 18, openedDate: '2026-06-01', expiryDate: '2027-12-01', bottle: { shape: 'tube', colorHex: '#FCDC4D' }, status: 'active' },
-  { id: '6', name: '绿茶籽水分菁露', brand: 'Innisfree', category: 'Serum', keyIngredients: ['绿茶籽', '双重透明质酸'], paoMonths: 12, openedDate: '2025-07-01', expiryDate: '2026-07-01', bottle: { shape: 'pump', colorHex: '#4CAF50' }, status: 'expiring' },
-];
+const GREETING: ChatMessage = { sender: 'assistant', text: '你好！我是你的 AI 测肤顾问 GuiGui。今天你的肌肤有什么困扰，或者想让我帮你分析化妆柜里哪些产品更适合你？' };
 
-// --- EXPLORE DATA (Matches Image 4 & 6 Concept) ---
-interface CuratedProduct {
-  id: string;
-  name: string;
-  brand: string;
-  category: string;
-  matchScore: number;
-  tags: string[];
-  description: string;
-  keyIngredients: string[];
-  paoMonths: number;
-  bottle: { shape: 'pump' | 'tube' | 'jar' | 'dropper' | 'spray' | 'stick' | 'bottle'; colorHex: string };
+function ShelfieLogo() {
+  return (
+    <svg viewBox="0 0 64 64" width={25} height={25} aria-label="柜柜" style={{ filter: 'drop-shadow(0 0 9px rgba(199,168,240,.5))' }}>
+      <defs>
+        <linearGradient id="np-logo-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#F5C0CB" /><stop offset=".35" stopColor="#F7DDB2" />
+          <stop offset=".7" stopColor="#BEEBD1" /><stop offset="1" stopColor="#B4D6F5" />
+        </linearGradient>
+      </defs>
+      <path d="M26 14h12v6h-3v5h6a5 5 0 0 1 5 5v18a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V30a5 5 0 0 1 5-5h6v-5h-3z" fill="url(#np-logo-g)" />
+    </svg>
+  );
 }
 
-const curatedProducts: CuratedProduct[] = [
-  { id: 'cur-1', name: '积雪草舒缓强韧精华液', brand: 'Skin1004', category: 'Serum', matchScore: 98, tags: ['超强推荐', '无香精', '敏感肌友好'], description: '核心提取马达加斯加纯净积雪草，瞬间褪红，强韧受损屏障。', keyIngredients: ['积雪草提取物', '羟基积雪草苷'], paoMonths: 12, bottle: { shape: 'dropper', colorHex: '#E2D3C1' } },
-  { id: 'cur-2', name: '温和弱酸性氨基酸洁面', brand: 'Anua', category: 'Cleanser', matchScore: 94, tags: ['深层清洁', '温和不紧绷'], description: '含有77%鱼腥草精粹，舒缓修护，温和洗净油脂粉尘。', keyIngredients: ['鱼腥草提取物', '椰油酰甘氨酸钾'], paoMonths: 12, bottle: { shape: 'tube', colorHex: '#EAEBE6' } },
-  { id: 'cur-3', name: '微修护维C亮肤精华', brand: 'Innbeauty Project', category: 'Serum', matchScore: 89, tags: ['提亮肤色', '抗氧化'], description: '高活性温和VC配方，快速提亮暗沉，淡化新生痘印且不易泛红。', keyIngredients: ['包裹型维生素C', '阿魏酸', '神经酰胺'], paoMonths: 9, bottle: { shape: 'pump', colorHex: '#FF7F50' } },
-  { id: 'cur-4', name: '鱼腥草 77% 舒缓爽肤水', brand: 'Anua', category: 'Toner', matchScore: 92, tags: ['去闭口', '湿敷推荐'], description: '韩国极高人气爽肤水，主打舒缓镇定，针对闭口和粉刺改善显著。', keyIngredients: ['鱼腥草水', '积雪草', '洋甘菊'], paoMonths: 12, bottle: { shape: 'bottle', colorHex: '#D9ECE4' } },
-  { id: 'cur-5', name: '纯净大米益生菌清爽防晒乳', brand: 'Beauty of Joseon', category: 'Sunscreen', matchScore: 88, tags: ['水润轻薄', '不油腻'], description: '乳霜质地极易推开，成膜速度快，含有大米发酵物，温和养肤。', keyIngredients: ['大米提取物', '谷物益生菌'], paoMonths: 12, bottle: { shape: 'tube', colorHex: '#FAF6EF' } },
-];
-
-const skinTypeLabels: Record<string, string> = {
-  'dry': '干性肌',
-  'oily': '油性肌',
-  'combination': '混合肌',
-  'normal': '中性肌',
-};
-
-const categoryLabels: Record<string, string> = {
-  'All': '全部',
-  'Serum': '精华液',
-  'Toner': '爽肤水',
-  'Moisturizer': '乳液面霜',
-  'Sunscreen': '防晒霜',
-  'Cleanser': '洁面乳',
-};
-
-const coreRoutineCategories = ['Cleanser', 'Moisturizer', 'Sunscreen'] as const;
-
-const initialAccountPromptState: AccountPromptState = {
-  activeTrigger: null,
-  dismissedTriggers: [],
-  eligibleTriggers: [],
-  showModal: false,
-};
-
-const accountPromptCopy: Record<AccountPromptTrigger, { benefits: string[]; description: string; title: string }> = {
-  'first-product': {
-    title: '已经获得第一轮价值，可以提示未来保存入口了',
-    description: '你已经成功把产品放进柜子。下一步真正值得做的账号能力，是保存、同步和跨设备继续使用。',
-    benefits: ['保存你的 cabinet', '跨设备同步柜子', '后续接入到期开封提醒'],
-  },
-  'ai-advice': {
-    title: 'AI 建议已经产生，未来可以在这里承接账号入口',
-    description: '现在用户已经感受到 inventory-aware AI 的价值，后续账号提示可以用来保存历史建议和个性化设置。',
-    benefits: ['保存 AI 历史建议', '同步肤质与敏感信息', '让后续推荐更连贯'],
-  },
-  'travel-plan': {
-    title: '出行建议已经有价值，未来可以在这里引导注册',
-    description: '用户已经得到了基于现有柜子的打包建议，后续账号入口可以承接保存清单和跨次旅行复用。',
-    benefits: ['保存 travel packing 清单', '同步你的常用柜子', '为后续提醒和个性化做准备'],
-  },
-};
-
 export default function App() {
-  // Navigation tabs
-  const [tab, setTab] = useState<'shelf' | 'explore' | 'ai' | 'routine'>('shelf');
-  
-  // Overlays & Subviews
-  const [view, setView] = useState<'home' | 'scan' | 'add-date'>('home');
-  const [inventory, setInventory] = useState<Product[]>(demoInventory);
-  const [profile, setProfile] = useState<SkinProfile>(demoProfile);
-  
-  // Ephemeral State
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  
-  // Profile Editor Modal State
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  
-  // AI Diagnostics State
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { 
-      sender: 'assistant', 
-      text: '你好！我是你的 AI 测肤顾问 GuiGui。今天你的肌肤有什么困扰，或者想让我帮你分析化妆柜里哪些产品更适合你？' 
-    }
-  ]);
+  const [tab, setTab] = React.useState<'shelf' | 'explore' | 'ai' | 'routine'>('shelf');
+  const [view, setView] = React.useState<'home' | 'scan' | 'add-date'>('home');
+  const [inventory, setInventory] = React.useState<Product[]>(demoInventory);
+  const [profile, setProfile] = React.useState<SkinProfile>(demoProfile);
+  const [scanResult, setScanResult] = React.useState<ScanResult | null>(null);
+  const [selected, setSelected] = React.useState<Product | null>(null);
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [messages, setMessages] = React.useState<ChatMessage[]>([GREETING]);
+  const [query, setQuery] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [travelRes, setTravelRes] = React.useState<TravelResult | null>(null);
+  const [travelSub, setTravelSub] = React.useState<'routine' | 'travel'>('routine');
+  const [acct, setAcct] = React.useState<{ activeTrigger: AccountPromptTrigger | null; dismissed: AccountPromptTrigger[]; showModal: boolean }>({ activeTrigger: null, dismissed: [], showModal: false });
+  const [showMenu, setShowMenu] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+  const toastTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const toast = (t: string) => { setMsg(t); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setMsg(''), 2400); };
 
-  // Travel / Packs State
-  const [travelRes, setTravelRes] = useState<TravelResult | null>(null);
-  const [travelActiveTab, setTravelActiveTab] = useState<'routine' | 'travel'>('routine');
+  const unlock = (trigger: AccountPromptTrigger) => setAcct((a) => (a.dismissed.includes(trigger) ? a : { ...a, activeTrigger: trigger }));
+  const dismissAcct = () => setAcct((a) => ({ activeTrigger: null, dismissed: a.activeTrigger ? [...a.dismissed, a.activeTrigger] : a.dismissed, showModal: false }));
+  const activeTrigger = acct.activeTrigger && !acct.dismissed.includes(acct.activeTrigger) ? acct.activeTrigger : null;
+  const acctCopy = activeTrigger ? accountPromptCopy[activeTrigger] : null;
 
-  // Add Product from Explore
-  const [addingExploreProd, setAddingExploreProd] = useState<CuratedProduct | null>(null);
-  const [accountPrompt, setAccountPrompt] = useState<AccountPromptState>(initialAccountPromptState);
-
-  // Time for mock phone status bar
-  const [currentTime, setCurrentTime] = useState('09:41');
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(format(now, 'HH:mm'));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const unlockAccountPrompt = (trigger: AccountPromptTrigger) => {
-    setAccountPrompt((currentPrompt) => {
-      const eligibleTriggers = currentPrompt.eligibleTriggers.includes(trigger)
-        ? currentPrompt.eligibleTriggers
-        : [...currentPrompt.eligibleTriggers, trigger];
-
-      return currentPrompt.dismissedTriggers.includes(trigger)
-        ? { ...currentPrompt, eligibleTriggers }
-        : { ...currentPrompt, activeTrigger: trigger, eligibleTriggers };
-    });
-  };
-
-  const closeAccountPromptModal = () => {
-    setAccountPrompt((currentPrompt) => ({ ...currentPrompt, showModal: false }));
-  };
-
-  const dismissAccountPrompt = () => {
-    setAccountPrompt((currentPrompt) => {
-      if (!currentPrompt.activeTrigger) {
-        return { ...currentPrompt, showModal: false };
-      }
-
-      const dismissedTriggers = currentPrompt.dismissedTriggers.includes(currentPrompt.activeTrigger)
-        ? currentPrompt.dismissedTriggers
-        : [...currentPrompt.dismissedTriggers, currentPrompt.activeTrigger];
-      const remainingTriggers = currentPrompt.eligibleTriggers.filter(
-        (trigger) => !dismissedTriggers.includes(trigger),
-      );
-
-      return {
-        ...currentPrompt,
-        activeTrigger: remainingTriggers.length > 0 ? remainingTriggers[remainingTriggers.length - 1] : null,
-        dismissedTriggers,
-        showModal: false,
-      };
-    });
-  };
-
-  const openAccountPromptModal = () => {
-    setAccountPrompt((currentPrompt) => ({ ...currentPrompt, showModal: true }));
-  };
-
-  // --- Handlers ---
-  const handleScanSuccess = (res: ScanResult) => {
-    setScanResult(res);
-    setView('add-date');
-  };
-
-  const handleAddDate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!scanResult) return;
-    const formData = new FormData(e.currentTarget);
-    const openedMonth = formData.get('month') as string; // YYYY-MM
-    const date = new Date(openedMonth + '-01');
-    const expiryDate = format(addMonths(date, scanResult.paoMonths || 12), 'yyyy-MM-dd');
-
-    const newProduct: Product = {
-      ...scanResult,
-      id: Math.random().toString(36).substring(7),
-      openedDate: openedMonth + '-01',
-      expiryDate,
-      status: 'active'
-    };
-
-    setInventory(currentInventory => [newProduct, ...currentInventory]);
-    setScanResult(null);
-    unlockAccountPrompt('first-product');
-    setTab('shelf');
-    setView('home');
-  };
-
-  // Direct add from Explore with custom opened date
-  const handleAddExploreProduct = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!addingExploreProd) return;
-    const formData = new FormData(e.currentTarget);
-    const openedMonth = formData.get('month') as string;
-    const date = new Date(openedMonth + '-01');
-    const expiryDate = format(addMonths(date, addingExploreProd.paoMonths || 12), 'yyyy-MM-dd');
-
-    const newProduct: Product = {
-      id: Math.random().toString(36).substring(7),
-      name: addingExploreProd.name,
-      brand: addingExploreProd.brand,
-      category: addingExploreProd.category,
-      keyIngredients: addingExploreProd.keyIngredients,
-      paoMonths: addingExploreProd.paoMonths,
-      openedDate: openedMonth + '-01',
-      expiryDate,
-      bottle: addingExploreProd.bottle,
-      status: 'active'
-    };
-
-    setInventory(currentInventory => [newProduct, ...currentInventory]);
-    setAddingExploreProd(null);
-    unlockAccountPrompt('first-product');
-    // Visual feedback
-    setTab('shelf');
-  };
-
-  const handleQuickAsk = async (text: string) => {
-    setQuery(text);
-    // Append user message
-    const updatedMessages = [...chatMessages, { sender: 'user' as const, text }];
-    setChatMessages(updatedMessages);
-    if (inventory.length === 0) {
-      setChatMessages([
-        ...updatedMessages,
-        {
-          sender: 'assistant',
-          text: '我需要先看到你的柜子里至少 1 件产品，才能做 inventory-aware 建议。请先扫码添加产品；如果只是泛泛护肤问题，这个 MVP 暂时不会冒充通用顾问。',
-        }
-      ]);
-      setQuery('');
-      return;
-    }
-
-    setLoading(true);
-    setQuery('');
-
-    try {
-      const res = await getVerdict(profile, inventory, text);
-      setChatMessages([
-        ...updatedMessages,
-        { 
-          sender: 'assistant', 
-          text: `【护肤诊断报告】\n${res.reason}`, 
-          verdict: res 
-        }
-      ]);
-      unlockAccountPrompt('ai-advice');
-    } catch (err: any) {
-      setChatMessages([
-        ...updatedMessages,
-        { 
-          sender: 'assistant', 
-          text: `抱歉，AI 分析出现了一点小问题: ${err.message || err}` 
-        }
-      ]);
-    }
-    setLoading(false);
-  };
-
-  const requestVerdict = async () => {
-    if (!query.trim()) return;
-    const currentQuery = query;
-    await handleQuickAsk(currentQuery);
-  };
-
-  const requestTravel = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const destination = fd.get('destination') as string;
-    const days = parseInt(fd.get('days') as string, 10);
-    if (inventory.length === 0) {
-      setTravelRes({
-        selectedIds: [],
-        reason: '你的柜子还没有产品。出行收纳会从已拥有的产品里挑选打包清单，请先扫码添加至少 1 件产品。',
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await getTravelList(profile, inventory, destination, days);
-      setTravelRes(res);
-      unlockAccountPrompt('travel-plan');
-    } catch (err) {
-      alert("错误: " + err);
-    }
-    setLoading(false);
-  };
-
-  const handleUpdateProfile = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const skinTypeValue = fd.get('skinType') as string;
-    const sensitivitiesString = fd.get('sensitivities') as string;
-    const activesString = fd.get('currentActives') as string;
-    const city = fd.get('city') as string;
-    const skinType = skinTypeValue ? skinTypeValue as Exclude<SkinProfile['skinType'], null> : null;
-
-    const sensitivities = sensitivitiesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
-    const currentActives = activesString.split(/[,，]/).map(s => s.trim()).filter(Boolean);
-
-    setProfile({ skinType, sensitivities, currentActives, city });
-    setShowProfileModal(false);
-  };
-
-  // Filter inventory by category
-  const filteredInventory = categoryFilter === 'All' 
-    ? inventory 
-    : inventory.filter(p => p.category === categoryFilter);
-  const isEmptyCabinet = inventory.length === 0;
-  const hasValueMoment = inventory.length > 0 || chatMessages.length > 1 || travelRes !== null;
+  const expired = inventory.filter((p) => expiryStatus(p) === 'expired');
+  const expiring = inventory.filter((p) => expiryStatus(p) === 'expiring');
+  const highlightedIds = (expired.length ? expired : expiring).map((p) => p.id);
+  const isEmpty = inventory.length === 0;
+  const hasValueMoment = inventory.length > 0 || messages.length > 1 || travelRes !== null;
   const requiredProfileComplete = profile.skinType !== null && profile.sensitivities.length > 0;
-  const improveLaterProfileComplete = profile.currentActives.length > 0 || profile.city.trim().length > 0;
-  const shouldPromptProfileCompletion = hasValueMoment && !requiredProfileComplete;
-  const activeAccountPromptTrigger = accountPrompt.activeTrigger && !accountPrompt.dismissedTriggers.includes(accountPrompt.activeTrigger)
-    ? accountPrompt.activeTrigger
-    : null;
-  const activeAccountPromptCopy = activeAccountPromptTrigger ? accountPromptCopy[activeAccountPromptTrigger] : null;
-  const inventoryExpiryState = inventory
-    .map((product) => ({
-      product,
-      daysUntilExpiry: differenceInDays(parseISO(product.expiryDate), new Date()),
-    }))
-    .sort((left, right) => left.daysUntilExpiry - right.daysUntilExpiry);
-  const expiredProducts = inventoryExpiryState
-    .filter(({ daysUntilExpiry }) => daysUntilExpiry < 0)
-    .map(({ product }) => product);
-  const expiringProducts = inventoryExpiryState
-    .filter(({ daysUntilExpiry }) => daysUntilExpiry >= 0 && daysUntilExpiry <= 30)
-    .map(({ product }) => product);
-  const highlightedSummaryIds = expiredProducts.length > 0
-    ? expiredProducts.map(({ id }) => id)
-    : expiringProducts.map(({ id }) => id);
-  const missingCoreCategories = coreRoutineCategories
-    .filter((category) => !inventory.some((product) => product.category === category))
-    .map((category) => categoryLabels[category]);
-  const aiInventoryHint = inventory.length === 0
-    ? '先添加产品后，AI 才会基于你的 cabinet 给建议'
-    : inventory.length < 3
-      ? `当前只有 ${inventory.length} 件产品，建议会先围绕已有产品，结论可能偏窄`
-      : `将基于柜子里的 ${inventory.length} 件产品做建议`;
-  const profileQualityHint = requiredProfileComplete
-    ? '肤质和敏感项已补，建议质量更稳定'
-    : '补充肤质和敏感项后，AI 会更少给出泛化建议';
-  const travelInventoryHint = inventory.length === 0
-    ? '先添加产品，才能生成 owned-products packing list'
-    : inventory.length < 3
-      ? `当前仅 ${inventory.length} 件产品，打包清单会很短`
-      : `从你已拥有的 ${inventory.length} 件产品中挑选`;
+  const promptProfile = hasValueMoment && !requiredProfileComplete;
 
-  // Expiration calculation helper
-  const soonCount = expiringProducts.length;
-  const expiredCount = expiredProducts.length;
+  const confirmAdd = (month: string) => {
+    if (!scanResult) return;
+    const expiryDate = addMonthsFromMonth(month, scanResult.paoMonths || 12);
+    const np: Product = { ...scanResult, id: Math.random().toString(36).slice(2, 8), openedDate: month + '-01', expiryDate, status: 'active' };
+    setInventory((inv) => [np, ...inv]);
+    setScanResult(null); setView('home'); setTab('shelf'); unlock('first-product');
+    toast(`「${np.name}」上架啦 ✓`);
+  };
+  const addExplore = (c: CuratedProduct) => { setScanResult({ name: c.name, brand: c.brand, category: c.category, keyIngredients: c.keyIngredients, paoMonths: c.paoMonths, bottle: c.bottle }); setView('add-date'); };
+
+  const ask = async (text: string) => {
+    if (!text.trim() || loading) return;
+    setMessages((m) => [...m, { sender: 'user', text }]); setQuery(''); setLoading(true);
+    try {
+      const v = await getVerdict(profile, inventory, text);
+      setMessages((m) => [...m, { sender: 'assistant', text: `【护肤诊断】${v.reason}`, verdict: v }]);
+      unlock('ai-advice');
+    } catch (err: any) {
+      setMessages((m) => [...m, { sender: 'assistant', text: `抱歉，AI 分析出现了一点小问题：${err?.message || err}` }]);
+    }
+    setLoading(false);
+  };
+
+  const travel = async (dest: string, days: number) => {
+    setLoading(true);
+    try {
+      const res = await getTravelList(profile, inventory, dest, days);
+      setTravelRes(res); unlock('travel-plan');
+    } catch (err: any) {
+      toast(`出行建议失败：${err?.message || err}`);
+    }
+    setLoading(false);
+  };
+
+  const saveProfile = (p: SkinProfile) => { setProfile(p); setShowProfile(false); toast('档案已更新 ✓'); };
+  const deleteProduct = (p: Product) => { setInventory((inv) => inv.filter((x) => x.id !== p.id)); setSelected(null); toast(`已从柜子移除「${p.name}」`); };
+
+  const openProfileFromMenu = () => { setShowMenu(false); setShowProfile(true); };
+  const openAccountFromMenu = () => { setShowMenu(false); setAcct((a) => ({ ...a, showModal: true })); };
+  const acctSheetCopy = acctCopy || accountPromptCopy['first-product'];
+  const sheetOpen = !!selected || showProfile || showMenu || acct.showModal;
+  const closeSheet = () => { setSelected(null); setShowProfile(false); setShowMenu(false); setAcct((a) => ({ ...a, showModal: false })); };
 
   return (
-    <div className="min-h-screen bg-[#F3EFE9] flex items-center justify-center font-sans py-0 md:py-8 antialiased">
-      
-      {/* PHONE WRAPPER / CONTAINER */}
-      <div className="w-full max-w-md md:max-w-[393px] md:h-[840px] md:rounded-[48px] md:border-8 md:border-stone-800 md:ring-[12px] md:ring-stone-900/10 md:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] bg-[#FAF8F5] flex flex-col relative overflow-hidden h-screen text-stone-800">
-        
-        {/* Dynamic Island for modern mobile UI */}
-        <div className="hidden md:block absolute top-3 left-1/2 -translate-x-1/2 w-28 h-6 bg-stone-950 rounded-full z-50 transition-all duration-300 hover:w-32 hover:h-7" />
-        
-        {/* iOS Mock Status Bar */}
-        <div className="flex items-center justify-between px-6 pt-3 pb-2 text-[11px] font-semibold text-stone-600 select-none bg-[#FAF8F5]/80 backdrop-blur-md z-40 shrink-0">
-          <span>{currentTime}</span>
-          <div className="flex items-center gap-1.5">
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.13 19.58 10.53 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            <div className="w-5 h-2.5 border border-stone-500 rounded-sm p-0.5 flex items-center"><div className="bg-stone-600 h-full w-4 rounded-2xs" /></div>
-          </div>
-        </div>
-
-        {/* APP HEADER */}
+    <div style={{ position: 'relative', height: '100%', maxWidth: 'var(--page-max)', margin: '0 auto', overflow: 'hidden', background: view === 'scan' ? 'var(--bg-scan)' : 'var(--bg)' }}>
+      <PrismBackground />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', flexDirection: 'column', paddingTop: 'calc(var(--sat) + 6px)' }}>
         {view === 'home' && (
-          <header className="px-5 pt-3 pb-2 flex flex-col bg-[#FAF8F5]/80 backdrop-blur-md z-30 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-baseline gap-1.5">
-                <h1 className="text-xl font-bold text-stone-900 tracking-tight">柜柜</h1>
-                <span className="text-[10px] text-stone-400 font-medium font-mono uppercase tracking-widest">skān</span>
-              </div>
-              
-              {/* Interactive Skin Profile Pill */}
-              <button 
-                onClick={() => setShowProfileModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3D7D52]/10 border border-[#3D7D52]/20 rounded-full text-[11px] text-[#3D7D52] font-semibold shadow-2xs hover:bg-[#3D7D52]/15 active:scale-95 transition-all"
-              >
-                <Sliders className="w-3 h-3" />
-                <span>{profile.skinType ? skinTypeLabels[profile.skinType] : '补充肤质'} · {profile.sensitivities[0] || '待补敏感项'}</span>
-              </button>
+          <>
+            <header style={{ display: 'grid', gridTemplateColumns: '29px 1fr 29px', alignItems: 'center', padding: '6px 20px 10px', borderBottom: '1px solid var(--line)', position: 'relative', zIndex: 3 }}>
+              <button onClick={() => setShowMenu(true)} aria-label="菜单" style={{ width: 29, height: 29, flex: 'none', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-soft)', display: 'grid', placeItems: 'center', cursor: 'pointer' } as S}><Icon name="Menu" size={14} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShelfieLogo /></div>
+              <button onClick={() => setShowProfile(true)} aria-label="我的档案" style={{ width: 29, height: 29, flex: 'none', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--line)', color: 'var(--ink-soft)', display: 'grid', placeItems: 'center', cursor: 'pointer' } as S}><Icon name="User" size={14} /></button>
+            </header>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              {tab === 'shelf' && (isEmpty
+                ? <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px' }}><EmptyCabinet onScan={() => setView('scan')} onExplore={() => setTab('explore')} /></div>
+                : <ShelfTab inventory={inventory} onOpen={setSelected} highlightedIds={highlightedIds} onChat={() => setTab('ai')} promptProfile={promptProfile} onOpenProfile={() => setShowProfile(true)} accountCopy={acctCopy} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct} />)}
+              {tab === 'explore' && <ExploreTab onAdd={addExplore} />}
+              {tab === 'ai' && <AiAdvisorTab messages={messages} query={query} setQuery={setQuery} loading={loading} onAsk={ask} onSend={() => ask(query)} inventory={inventory} promptProfile={promptProfile} onOpenProfile={() => setShowProfile(true)} accountCopy={activeTrigger === 'ai-advice' ? acctCopy : null} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct} />}
+              {tab === 'routine' && <RoutineTab inventory={inventory} sub={travelSub} setSub={setTravelSub} travelRes={travelRes} loading={loading} onTravel={travel} accountCopy={activeTrigger === 'travel-plan' ? acctCopy : null} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct} />}
             </div>
-          </header>
+            <TabBar showLabels={false} value={tab} onChange={(k) => (k === 'scan' ? setView('scan') : setTab(k as any))} items={[
+              { key: 'shelf', label: '架子', icon: <Icon name="Package" /> },
+              { key: 'explore', label: '探索', icon: <Icon name="Sparkles" /> },
+              { key: 'scan', label: '扫码', icon: <Icon name="ScanLine" /> },
+              { key: 'ai', label: '顾问', icon: <Icon name="MessageCircle" /> },
+              { key: 'routine', label: '收纳', icon: <Icon name="Plane" /> },
+            ]} />
+          </>
         )}
-
-        {/* MAIN BODY AREA */}
-        <div className="flex-1 overflow-y-auto pb-24 relative bg-[#FAF8F5]">
-          <AnimatePresence mode="wait">
-            
-            {/* SUB-VIEW: MAIN APPLICATION */}
-            {view === 'home' && (
-              <motion.div 
-                key="home-tabs"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col h-full"
-              >
-                {/* 1. CABINET / SHELF TAB */}
-                {tab === 'shelf' && (
-                  <ShelfTab
-                    activeAccountPromptCopy={activeAccountPromptCopy}
-                    categoryFilter={categoryFilter}
-                    categoryLabels={categoryLabels}
-                    expiredCount={expiredCount}
-                    filteredInventory={filteredInventory}
-                    highlightedSummaryIds={highlightedSummaryIds}
-                    inventory={inventory}
-                    isEmptyCabinet={isEmptyCabinet}
-                    missingCoreCategories={missingCoreCategories}
-                    shouldPromptProfileCompletion={shouldPromptProfileCompletion}
-                    soonCount={soonCount}
-                    onDismissAccountPrompt={dismissAccountPrompt}
-                    onExplore={() => setTab('explore')}
-                    onOpenAccountPrompt={openAccountPromptModal}
-                    onOpenProfile={() => setShowProfileModal(true)}
-                    onProductClick={(product) => setSelectedProduct(product)}
-                    onScan={() => setView('scan')}
-                    onSetCategoryFilter={setCategoryFilter}
-                  />
-                )}
-
-                {/* 2. EXPLORE TAB (Matches Image 4 & 6) */}
-                {tab === 'explore' && (
-                  <div className="px-4 py-2 space-y-4">
-                    {/* Hero Pick Banner */}
-                    <div className="relative bg-gradient-to-br from-[#ECE7DF] to-[#E3DCD1] p-5 rounded-3xl overflow-hidden shadow-2xs border border-[#DFD8CC]">
-                      <div className="relative z-10 max-w-[60%] space-y-1.5">
-                        <span className="inline-block px-2.5 py-0.5 bg-[#3D7D52] text-white text-[9px] font-bold uppercase rounded-full">K-Beauty 爆款精选</span>
-                        <h3 className="text-base font-bold text-stone-800 leading-tight">探索最契合你肤质的护肤好物</h3>
-                        <p className="text-[10px] text-stone-600 leading-relaxed">避免盲目跟风，AI 科学比对成分库</p>
-                      </div>
-                      <div className="absolute right-2 bottom-0 w-[42%] translate-y-2 opacity-90">
-                        <Bottle shape="dropper" colorHex="#D0C4B4" size={100} className="mx-auto" />
-                      </div>
-                    </div>
-
-                    {/* Filters Header */}
-                    <div className="flex items-center justify-between pt-1">
-                      <h4 className="text-sm font-bold text-stone-800">专为你精选的 5 款好物</h4>
-                      <span className="text-[10px] text-stone-400 font-medium font-mono">100% 针对个人成分敏敏库</span>
-                    </div>
-
-                    {/* Curated Products List */}
-                    <div className="space-y-3">
-                      {curatedProducts.map(prod => (
-                        <div 
-                          key={prod.id}
-                          className="bg-white p-4 rounded-2xl border border-stone-100 shadow-3xs flex gap-4 hover:shadow-2xs transition-all relative overflow-hidden"
-                        >
-                          <div className="w-14 h-18 bg-[#FAF8F5] rounded-xl flex items-center justify-center shrink-0 border border-stone-500/5">
-                            <Bottle shape={prod.bottle.shape} colorHex={prod.bottle.colorHex} size={42} />
-                          </div>
-                          
-                          <div className="flex-1 space-y-1 min-w-0 pr-8">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-semibold text-stone-400 tracking-wider uppercase">{prod.brand}</span>
-                              <span className="w-1 h-1 rounded-full bg-stone-300" />
-                              <span className="text-[9px] font-semibold text-[#3D7D52] bg-[#E8F3E8] px-1.5 py-0.5 rounded-full">{prod.matchScore}% 契合度</span>
-                            </div>
-                            <h5 className="text-xs font-bold text-stone-800 truncate">{prod.name}</h5>
-                            <p className="text-[10px] text-stone-500 line-clamp-1.5 leading-relaxed">{prod.description}</p>
-                            
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              {prod.tags.map(t => (
-                                <span key={t} className="text-[8px] font-semibold text-stone-500 bg-stone-50 px-1.5 py-0.5 rounded-md border border-stone-100">
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Quick Add To Shelf Button */}
-                          <button
-                            onClick={() => setAddingExploreProd(prod)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"
-                            title="添加至化妆柜"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. AI ADVISOR TAB (Matches Image 1) */}
-                {tab === 'ai' && (
-                  <AiAdvisorTab
-                    activeAccountPromptCopy={activeAccountPromptCopy}
-                    activeAccountPromptTrigger={activeAccountPromptTrigger}
-                    aiInventoryHint={aiInventoryHint}
-                    chatMessages={chatMessages}
-                    inventory={inventory}
-                    loading={loading}
-                    profileQualityHint={profileQualityHint}
-                    query={query}
-                    shouldPromptProfileCompletion={shouldPromptProfileCompletion}
-                    onDismissAccountPrompt={dismissAccountPrompt}
-                    onOpenAccountPrompt={openAccountPromptModal}
-                    onOpenProfile={() => setShowProfileModal(true)}
-                    onQuickAsk={handleQuickAsk}
-                    onRequestVerdict={requestVerdict}
-                    onScan={() => setView('scan')}
-                    onSetQuery={setQuery}
-                  />
-                )}
-
-                {/* 4. ROUTINE & TRAVEL TAB (Matches Image 5 Timeline) */}
-                {tab === 'routine' && (
-                  <RoutineTravelTab
-                    activeAccountPromptCopy={activeAccountPromptCopy}
-                    activeAccountPromptTrigger={activeAccountPromptTrigger}
-                    inventory={inventory}
-                    loading={loading}
-                    travelActiveTab={travelActiveTab}
-                    travelInventoryHint={travelInventoryHint}
-                    travelRes={travelRes}
-                    onDismissAccountPrompt={dismissAccountPrompt}
-                    onOpenAccountPrompt={openAccountPromptModal}
-                    onRequestTravel={requestTravel}
-                    onSetTravelActiveTab={setTravelActiveTab}
-                  />
-                )}
-              </motion.div>
-            )}
-
-            {/* SUB-VIEW: SCAN CAMERA (Full Screen inside phone frame) */}
-            {view === 'scan' && (
-              <Scanner 
-                onScanSuccess={handleScanSuccess} 
-                onCancel={() => setView('home')} 
-              />
-            )}
-
-            {/* SUB-VIEW: ADD OPENED DATE SPECIFIER */}
-            {view === 'add-date' && scanResult && (
-              <motion.div 
-                key="add-date"
-                initial={{ opacity: 0, y: '100%' }} 
-                animate={{ opacity: 1, y: 0 }} 
-                exit={{ opacity: 0, y: '100%' }}
-                className="absolute inset-0 z-50 bg-[#FAF8F5] flex flex-col justify-end p-5"
-              >
-                <div className="w-full bg-white p-6 rounded-3xl shadow-md border border-stone-100 flex flex-col items-center text-center space-y-5">
-                  <div className="w-20 h-20 bg-[#FAF8F5] rounded-full flex items-center justify-center border border-stone-100">
-                    <Bottle shape={scanResult.bottle.shape} colorHex={scanResult.bottle.colorHex} size={64} />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-bold uppercase">{scanResult.brand}</span>
-                    <h2 className="text-lg font-bold text-stone-800 tracking-tight">{scanResult.name}</h2>
-                    <p className="text-stone-400 text-xs">{categoryLabels[scanResult.category] || scanResult.category}</p>
-                  </div>
-
-                  <div className="w-full bg-[#FAF8F5] rounded-2xl p-4 text-left space-y-2 border border-stone-100/50">
-                    <div className="flex items-center justify-between text-xs font-semibold text-stone-600">
-                      <span>开封保质期 (PAO)</span>
-                      <span className="text-stone-800">{scanResult.paoMonths} 个月</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1.5">
-                      {scanResult.keyIngredients.slice(0, 4).map(ing => (
-                        <span key={ing} className="px-2 py-0.5 bg-white rounded-md border border-stone-100 text-[10px] text-stone-500 font-medium shadow-3xs">{ing}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleAddDate} className="w-full space-y-4">
-                    <div className="space-y-1.5 text-left">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">开封时间</label>
-                      <input 
-                        type="month" 
-                        name="month" 
-                        required 
-                        defaultValue={format(new Date(), 'yyyy-MM')} 
-                        className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-4 py-3 text-xs text-stone-850 focus:outline-none focus:border-stone-400 shadow-3xs" 
-                      />
-                    </div>
-                    
-                    <div className="flex gap-2 pt-2">
-                      <button 
-                        type="button" 
-                        onClick={() => { setScanResult(null); setView('home'); }} 
-                        className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-600 py-3.5 rounded-xl text-xs font-bold transition-all"
-                      >
-                        放弃
-                      </button>
-                      <button 
-                        type="submit" 
-                        className="flex-1 bg-stone-800 hover:bg-stone-700 text-white py-3.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1"
-                      >
-                        加入化妆柜 <Check className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-        </div>
-
-        {/* PERSISTENT FLOATING NAVIGATION BAR */}
-        {view === 'home' && (
-          <div className="absolute bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-stone-100 px-4 py-3 flex justify-around items-center z-40 shadow-sm">
-            <button 
-              onClick={() => setTab('shelf')} 
-              className={`flex flex-col items-center gap-1 transition-all ${tab === 'shelf' ? 'text-stone-900 scale-105' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              <div className="p-1 rounded-full"><Sliders className="w-5 h-5" /></div>
-              <span className="text-[9px] font-bold">我的柜子</span>
-            </button>
-
-            <button 
-              onClick={() => setTab('explore')} 
-              className={`flex flex-col items-center gap-1 transition-all ${tab === 'explore' ? 'text-stone-900 scale-105' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              <div className="p-1 rounded-full"><Heart className="w-5 h-5" /></div>
-              <span className="text-[9px] font-bold">发现推荐</span>
-            </button>
-
-            {/* SCANNER TRIGGER BUTTON */}
-            <button 
-              onClick={() => setView('scan')} 
-              className="relative -top-5 flex-shrink-0 w-12 h-12 bg-stone-850 hover:bg-stone-700 text-white rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-md border-4 border-[#FAF8F5] group"
-            >
-              <Camera className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-            </button>
-
-            <button 
-              onClick={() => setTab('ai')} 
-              className={`flex flex-col items-center gap-1 transition-all ${tab === 'ai' ? 'text-stone-900 scale-105' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              <div className="p-1 rounded-full"><Sparkles className="w-5 h-5" /></div>
-              <span className="text-[9px] font-bold">AI咨询</span>
-            </button>
-
-            <button 
-              onClick={() => setTab('routine')} 
-              className={`flex flex-col items-center gap-1 transition-all ${tab === 'routine' ? 'text-stone-900 scale-105' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              <div className="p-1 rounded-full"><Plane className="w-5 h-5" /></div>
-              <span className="text-[9px] font-bold">收纳日常</span>
-            </button>
-          </div>
-        )}
-
-        {/* --- DRAWER MODALS --- */}
-
-        {/* 1. PRODUCT DETAIL BOTTOM SHEET MODAL (iOS style) */}
-        <AnimatePresence>
-          {selectedProduct && (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="absolute inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end justify-center"
-              onClick={() => setSelectedProduct(null)}
-            >
-              <motion.div 
-                initial={{ y: '100%' }} 
-                animate={{ y: 0 }} 
-                exit={{ y: '100%' }}
-                transition={{ type: "spring", damping: 24, stiffness: 260 }} 
-                onClick={e => e.stopPropagation()} 
-                className="w-full bg-white rounded-t-[32px] p-6 relative shadow-2xl pb-8 max-h-[85%] overflow-y-auto"
-              >
-                {/* Drag handle line */}
-                <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-4" />
-                
-                <button 
-                  onClick={() => setSelectedProduct(null)} 
-                  className="absolute top-4 right-4 p-1.5 bg-stone-100 hover:bg-stone-200 rounded-full text-stone-500 hover:text-stone-800 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                
-                <div className="flex justify-center mb-4 mt-2">
-                   <Bottle shape={selectedProduct.bottle.shape} colorHex={selectedProduct.bottle.colorHex} size={80} />
-                </div>
-                
-                <div className="text-center space-y-1 mb-6">
-                  <span className="text-[9px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{selectedProduct.brand}</span>
-                  <h3 className="text-base font-bold text-stone-800">{selectedProduct.name}</h3>
-                  <span className="inline-block px-2 py-0.5 bg-[#3D7D52]/10 text-[#3D7D52] rounded text-[10px] font-bold">
-                    {categoryLabels[selectedProduct.category] || selectedProduct.category}
-                  </span>
-                </div>
-                
-                <div className="space-y-3 bg-[#FAF8F5] p-5 rounded-2xl border border-stone-100">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-stone-400 shrink-0" />
-                    <div className="text-xs">
-                      <p className="text-stone-400 font-medium">开封时间</p>
-                      <p className="text-stone-700 font-semibold mt-0.5">{format(parseISO(selectedProduct.openedDate), 'yyyy年MM月')}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="h-px bg-stone-100" />
-                  
-                  <div className="flex items-center gap-3">
-                    <Info className="w-4 h-4 text-stone-400 shrink-0" />
-                    <div className="text-xs">
-                      <p className="text-stone-400 font-medium">保质期限</p>
-                      <p className="text-stone-700 font-semibold mt-0.5">
-                        {format(parseISO(selectedProduct.expiryDate), 'yyyy年MM月')} 
-                        <span className="text-stone-400 font-medium ml-1">({selectedProduct.paoMonths}个月 PAO)</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-2">
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">核心活性成分 ({selectedProduct.keyIngredients.length})</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedProduct.keyIngredients.map(ing => (
-                      <span key={ing} className="px-2.5 py-1 bg-stone-50 text-stone-600 rounded-lg text-xs font-semibold border border-stone-100 shadow-3xs">{ing}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Remove product button */}
-                <button
-                  onClick={() => {
-                    setInventory(currentInventory => currentInventory.filter(i => i.id !== selectedProduct.id));
-                    setSelectedProduct(null);
-                  }}
-                  className="w-full mt-6 py-3 border border-rose-150 hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-xl active:scale-95 transition-all text-center"
-                >
-                  从化妆柜中移除该产品
-                </button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {accountPrompt.showModal && activeAccountPromptCopy && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end justify-center"
-              onClick={closeAccountPromptModal}
-            >
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 24, stiffness: 260 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full"
-              >
-                <GuestAccountPromptSheet
-                  title={activeAccountPromptCopy.title}
-                  description={activeAccountPromptCopy.description}
-                  benefits={activeAccountPromptCopy.benefits}
-                  onClose={closeAccountPromptModal}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 2. PROFILE EDITOR BOTTOM SHEET MODAL */}
-        <AnimatePresence>
-          {showProfileModal && (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="absolute inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end justify-center"
-              onClick={() => setShowProfileModal(false)}
-            >
-              <motion.div 
-                initial={{ y: '100%' }} 
-                animate={{ y: 0 }} 
-                exit={{ y: '100%' }}
-                transition={{ type: "spring", damping: 24, stiffness: 260 }} 
-                onClick={e => e.stopPropagation()} 
-                className="w-full bg-white rounded-t-[32px] p-6 relative shadow-2xl pb-8"
-              >
-                {/* Drag handle line */}
-                <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-4" />
-                
-                <button 
-                  onClick={() => setShowProfileModal(false)} 
-                  className="absolute top-4 right-4 p-1.5 bg-stone-100 hover:bg-stone-200 rounded-full text-stone-500 hover:text-stone-800 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-
-                <div className="mb-5 space-y-1">
-                  <h3 className="text-base font-bold text-stone-800">逐步补充你的肤质档案</h3>
-                  <p className="text-xs leading-5 text-stone-500">
-                    本批次不做阻塞式 onboarding。先填最关键的肤质和敏感成分，城市和强效成分属于 improve-later。
-                  </p>
-                </div>
-
-                <form onSubmit={handleUpdateProfile} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">基本肤质</label>
-                      <span className="text-[10px] font-semibold text-[#5F8B68]">建议先补</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['dry', 'oily', 'combination', 'normal'].map(type => (
-                        <label 
-                          key={type} 
-                          className="flex flex-col items-center justify-center p-2 rounded-xl border text-[11px] font-semibold cursor-pointer transition-all select-none"
-                          style={{
-                            backgroundColor: profile.skinType === type ? '#E8F3E8' : '#FAF8F5',
-                            borderColor: profile.skinType === type ? '#3D7D52' : '#F0EDE8',
-                            color: profile.skinType === type ? '#3D7D52' : '#78716c'
-                          }}
-                        >
-                          <input 
-                            type="radio" 
-                            name="skinType" 
-                            value={type} 
-                            checked={profile.skinType === type}
-                            className="sr-only" 
-                            onChange={() => setProfile({ ...profile, skinType: type as SkinProfile['skinType'] })}
-                          />
-                          {skinTypeLabels[type]}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">敏感成分 (逗号隔开)</label>
-                      <span className="text-[10px] font-semibold text-[#5F8B68]">建议先补</span>
-                    </div>
-                    <input 
-                      name="sensitivities" 
-                      defaultValue={profile.sensitivities.join(', ')}
-                      placeholder="如：香精, 酒精, 视黄醇"
-                      className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400 shadow-3xs" 
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">当前在用的强效成分</label>
-                      <span className="text-[10px] font-semibold text-stone-400">improve later</span>
-                    </div>
-                    <input 
-                      name="currentActives" 
-                      defaultValue={profile.currentActives.join(', ')}
-                      placeholder="如：烟酰胺, 维C, A醇"
-                      className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400 shadow-3xs" 
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">您当前所在城市</label>
-                      <span className="text-[10px] font-semibold text-stone-400">可稍后再补</span>
-                    </div>
-                    <input 
-                      name="city" 
-                      defaultValue={profile.city}
-                      className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-850 focus:outline-none focus:border-stone-400 shadow-3xs" 
-                    />
-                  </div>
-
-                  {improveLaterProfileComplete && (
-                    <div className="rounded-2xl border border-[#DCE8DF] bg-[#F4F8F4] px-3 py-2 text-[11px] leading-5 text-[#5F8B68]">
-                      你已经补了 improve-later 信息。当前真正还影响建议质量的，是把肤质和敏感成分补完整。
-                    </div>
-                  )}
-
-                  <button 
-                    type="submit"
-                    className="w-full bg-stone-800 hover:bg-stone-700 text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm"
-                  >
-                    保存我的肤质设置
-                  </button>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 3. SET DATE AND ADD TO CABINET DRAWER FOR EXPLORE PRODUCTS */}
-        <AnimatePresence>
-          {addingExploreProd && (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="absolute inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-end justify-center"
-              onClick={() => setAddingExploreProd(null)}
-            >
-              <motion.div 
-                initial={{ y: '100%' }} 
-                animate={{ y: 0 }} 
-                exit={{ y: '100%' }}
-                transition={{ type: "spring", damping: 24, stiffness: 260 }} 
-                onClick={e => e.stopPropagation()} 
-                className="w-full bg-white rounded-t-[32px] p-6 relative shadow-2xl pb-8"
-              >
-                {/* Drag handle line */}
-                <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-4" />
-                
-                <button 
-                  onClick={() => setAddingExploreProd(null)} 
-                  className="absolute top-4 right-4 p-1.5 bg-stone-100 hover:bg-stone-200 rounded-full text-stone-500 hover:text-stone-800 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="w-16 h-16 bg-[#FAF8F5] rounded-full flex items-center justify-center border border-stone-100">
-                    <Bottle shape={addingExploreProd.bottle.shape} colorHex={addingExploreProd.bottle.colorHex} size={48} />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[9px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full font-bold uppercase">{addingExploreProd.brand}</span>
-                    <h3 className="text-base font-bold text-stone-800">{addingExploreProd.name}</h3>
-                    <p className="text-stone-400 text-xs">{categoryLabels[addingExploreProd.category] || addingExploreProd.category}</p>
-                  </div>
-
-                  <form onSubmit={handleAddExploreProduct} className="w-full space-y-4 text-left">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-stone-400 font-bold uppercase">什么时候开封的该产品？</label>
-                      <input 
-                        type="month" 
-                        name="month" 
-                        required 
-                        defaultValue={format(new Date(), 'yyyy-MM')} 
-                        className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-4 py-3 text-xs text-stone-800 focus:outline-none focus:border-stone-400 shadow-3xs" 
-                      />
-                    </div>
-                    
-                    <button 
-                      type="submit"
-                      className="w-full bg-stone-850 hover:bg-stone-700 text-white py-3.5 rounded-xl font-bold text-xs active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5"
-                    >
-                      <span>确认添加至化妆柜</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </form>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+        {view === 'scan' && <Scanner onScanSuccess={(r) => { setScanResult(r); setView('add-date'); }} onCancel={() => setView('home')} />}
+        {view === 'add-date' && scanResult && <AddDate scanResult={scanResult} onCancel={() => { setScanResult(null); setView('home'); }} onConfirm={confirmAdd} />}
       </div>
-
+      <BottomSheet open={sheetOpen} onClose={closeSheet}>
+        {selected && <ProductSheetBody p={selected} onClose={closeSheet} onDelete={deleteProduct} />}
+        {!selected && showMenu && <MenuSheetBody profile={profile} onProfile={openProfileFromMenu} onAccount={openAccountFromMenu} onClose={closeSheet} />}
+        {!selected && !showMenu && showProfile && <ProfileModalBody profile={profile} onSave={saveProfile} />}
+        {!selected && !showMenu && !showProfile && acct.showModal && <AccountSheetBody copy={acctSheetCopy} onClose={closeSheet} />}
+      </BottomSheet>
+      <Toast show={!!msg}>{msg}</Toast>
     </div>
   );
 }

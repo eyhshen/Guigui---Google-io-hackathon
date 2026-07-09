@@ -1,1 +1,35 @@
 @import "tailwindcss";
+@import "./night-prism-tokens/colors.css";
+@import "./night-prism-tokens/effects.css";
+@import "./night-prism-tokens/spacing.css";
+@import "./night-prism-tokens/typography.css";
+@import url("https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Noto+Serif+SC:wght@200;700&family=Noto+Sans+SC:wght@400;500;700&display=swap");
+
+/* 夜虹 Night Prism — dark base */
+:root {
+  color-scheme: dark;
+  --font-display: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", serif;
+  --font-logo: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", serif;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+body { -webkit-font-smoothing: antialiased; }
+
+input::placeholder, textarea::placeholder { color: var(--dim); opacity: 1; }
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="number"]::-webkit-inner-spin-button { filter: invert(.85) opacity(.55); }
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+@keyframes np-bounce { 0%,100%{ transform: translateY(0); opacity:.5 } 50%{ transform: translateY(-4px); opacity:1 } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

@@ -1,5 +1,8 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
+import http from "http";
+import https from "https";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -120,7 +123,7 @@ function mockTravel(profile: SkinProfile, inventory: Product[], destination: str
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Increase payload limit for base64 images
   app.use(express.json({ limit: '10mb' }));
@@ -311,10 +314,19 @@ async function startServer() {
     }
   });
 
+  // HTTPS in dev when certs exist — required for camera (getUserMedia) on a phone over LAN.
+  const keyPath = path.join(process.cwd(), "certs", "key.pem");
+  const certPath = path.join(process.cwd(), "certs", "cert.pem");
+  const hasCerts = fs.existsSync(keyPath) && fs.existsSync(certPath);
+  const server = hasCerts
+    ? https.createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, app)
+    : http.createServer(app);
+  const protocol = hasCerts ? "https" : "http";
+
   // --- Vite Middleware for Development ---
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: { server }, allowedHosts: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -326,8 +338,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on ${protocol}://localhost:${PORT}`);
   });
 }
 
