@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Camera, Sparkles, Plane, Info, X, Calendar,
-  Heart, Check, AlertCircle, Plus,
-  ArrowRight, Sliders, CheckSquare, RefreshCw
+  Heart, Check, Plus,
+  ArrowRight, Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMonths, differenceInDays, format, parseISO } from 'date-fns';
+import { AiAdvisorTab } from './components/AiAdvisorTab';
 import { Bottle } from './components/Bottle';
-import { EmptyCabinetState } from './components/EmptyCabinetState';
-import { GuestAccountPromptCard, GuestAccountPromptSheet } from './components/GuestAccountPrompt';
-import { HomeSummary } from './components/HomeSummary';
-import { ProfileCompletionPrompt } from './components/ProfileCompletionPrompt';
+import { GuestAccountPromptSheet } from './components/GuestAccountPrompt';
+import { RoutineTravelTab } from './components/RoutineTravelTab';
 import { Scanner } from './components/Scanner';
-import { Shelf } from './components/Shelf';
-import { AccountPromptState, AccountPromptTrigger, Product, SkinProfile, ScanResult, VerdictResult, TravelResult } from './types';
+import { ShelfTab } from './components/ShelfTab';
+import { AccountPromptState, AccountPromptTrigger, ChatMessage, Product, SkinProfile, ScanResult, TravelResult } from './types';
 import { getVerdict, getTravelList } from './api';
 
 // --- DEMO INITIAL DATA ---
@@ -118,7 +117,7 @@ export default function App() {
   // AI Diagnostics State
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string; verdict?: VerdictResult }>>([
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { 
       sender: 'assistant', 
       text: '你好！我是你的 AI 测肤顾问 GuiGui。今天你的肌肤有什么困扰，或者想让我帮你分析化妆柜里哪些产品更适合你？' 
@@ -251,6 +250,18 @@ export default function App() {
     // Append user message
     const updatedMessages = [...chatMessages, { sender: 'user' as const, text }];
     setChatMessages(updatedMessages);
+    if (inventory.length === 0) {
+      setChatMessages([
+        ...updatedMessages,
+        {
+          sender: 'assistant',
+          text: '我需要先看到你的柜子里至少 1 件产品，才能做 inventory-aware 建议。请先扫码添加产品；如果只是泛泛护肤问题，这个 MVP 暂时不会冒充通用顾问。',
+        }
+      ]);
+      setQuery('');
+      return;
+    }
+
     setLoading(true);
     setQuery('');
 
@@ -288,6 +299,14 @@ export default function App() {
     const fd = new FormData(e.currentTarget);
     const destination = fd.get('destination') as string;
     const days = parseInt(fd.get('days') as string, 10);
+    if (inventory.length === 0) {
+      setTravelRes({
+        selectedIds: [],
+        reason: '你的柜子还没有产品。出行收纳会从已拥有的产品里挑选打包清单，请先扫码添加至少 1 件产品。',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await getTravelList(profile, inventory, destination, days);
@@ -346,6 +365,19 @@ export default function App() {
   const missingCoreCategories = coreRoutineCategories
     .filter((category) => !inventory.some((product) => product.category === category))
     .map((category) => categoryLabels[category]);
+  const aiInventoryHint = inventory.length === 0
+    ? '先添加产品后，AI 才会基于你的 cabinet 给建议'
+    : inventory.length < 3
+      ? `当前只有 ${inventory.length} 件产品，建议会先围绕已有产品，结论可能偏窄`
+      : `将基于柜子里的 ${inventory.length} 件产品做建议`;
+  const profileQualityHint = requiredProfileComplete
+    ? '肤质和敏感项已补，建议质量更稳定'
+    : '补充肤质和敏感项后，AI 会更少给出泛化建议';
+  const travelInventoryHint = inventory.length === 0
+    ? '先添加产品，才能生成 owned-products packing list'
+    : inventory.length < 3
+      ? `当前仅 ${inventory.length} 件产品，打包清单会很短`
+      : `从你已拥有的 ${inventory.length} 件产品中挑选`;
 
   // Expiration calculation helper
   const soonCount = expiringProducts.length;
@@ -406,75 +438,26 @@ export default function App() {
               >
                 {/* 1. CABINET / SHELF TAB */}
                 {tab === 'shelf' && (
-                  <div className="px-4 py-2 space-y-4">
-                    {isEmptyCabinet ? (
-                      <EmptyCabinetState
-                        onScan={() => setView('scan')}
-                        onExplore={() => setTab('explore')}
-                      />
-                    ) : (
-                      <>
-                        {shouldPromptProfileCompletion && (
-                          <ProfileCompletionPrompt
-                            title="先补最关键的肤质信息，让后续建议更靠谱"
-                            description="现在已经可以正常用 cabinet 了。补充肤质和敏感成分后，AI 建议会更接近真实使用场景。"
-                            emphasizedFields={['肤质', '敏感成分']}
-                            onOpen={() => setShowProfileModal(true)}
-                          />
-                        )}
-
-                        {activeAccountPromptCopy && (
-                          <GuestAccountPromptCard
-                            title={activeAccountPromptCopy.title}
-                            description={activeAccountPromptCopy.description}
-                            onOpen={openAccountPromptModal}
-                            onDismiss={dismissAccountPrompt}
-                          />
-                        )}
-
-                        <HomeSummary
-                          productCount={inventory.length}
-                          soonCount={soonCount}
-                          expiredCount={expiredCount}
-                          missingCoreCategories={missingCoreCategories}
-                          onScan={() => setView('scan')}
-                        />
-
-                        {/* Category Scroll Menu */}
-                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 select-none">
-                          {Object.entries(categoryLabels).map(([key, label]) => (
-                            <button
-                              key={key}
-                              onClick={() => setCategoryFilter(key)}
-                              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                                categoryFilter === key
-                                  ? 'bg-stone-800 text-white shadow-sm'
-                                  : 'bg-white text-stone-500 border border-stone-100 hover:text-stone-800'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Shelf Content */}
-                        {filteredInventory.length > 0 ? (
-                          <Shelf
-                            inventory={filteredInventory}
-                            onProductClick={(p) => setSelectedProduct(p)}
-                            highlightedIds={categoryFilter === 'All' ? highlightedSummaryIds : []}
-                          />
-                        ) : (
-                          <div className="py-16 text-center space-y-3">
-                            <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
-                              <Info className="w-6 h-6" />
-                            </div>
-                            <p className="text-xs text-stone-400 font-medium">此类别下暂无收纳，点击上方继续扫码添加吧。</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  <ShelfTab
+                    activeAccountPromptCopy={activeAccountPromptCopy}
+                    categoryFilter={categoryFilter}
+                    categoryLabels={categoryLabels}
+                    expiredCount={expiredCount}
+                    filteredInventory={filteredInventory}
+                    highlightedSummaryIds={highlightedSummaryIds}
+                    inventory={inventory}
+                    isEmptyCabinet={isEmptyCabinet}
+                    missingCoreCategories={missingCoreCategories}
+                    shouldPromptProfileCompletion={shouldPromptProfileCompletion}
+                    soonCount={soonCount}
+                    onDismissAccountPrompt={dismissAccountPrompt}
+                    onExplore={() => setTab('explore')}
+                    onOpenAccountPrompt={openAccountPromptModal}
+                    onOpenProfile={() => setShowProfileModal(true)}
+                    onProductClick={(product) => setSelectedProduct(product)}
+                    onScan={() => setView('scan')}
+                    onSetCategoryFilter={setCategoryFilter}
+                  />
                 )}
 
                 {/* 2. EXPLORE TAB (Matches Image 4 & 6) */}
@@ -543,378 +526,41 @@ export default function App() {
 
                 {/* 3. AI ADVISOR TAB (Matches Image 1) */}
                 {tab === 'ai' && (
-                  <div className="flex flex-col h-full px-4 py-2 gap-4">
-                    {shouldPromptProfileCompletion && (
-                      <ProfileCompletionPrompt
-                        title="在问 AI 前，先补一点基础档案"
-                        description="这里不拦你继续提问，但如果先补肤质和敏感成分，AI 会更少给出泛化建议。"
-                        emphasizedFields={['肤质', '敏感成分']}
-                        onOpen={() => setShowProfileModal(true)}
-                      />
-                    )}
-
-                    {activeAccountPromptTrigger === 'ai-advice' && activeAccountPromptCopy && (
-                      <GuestAccountPromptCard
-                        title={activeAccountPromptCopy.title}
-                        description={activeAccountPromptCopy.description}
-                        onOpen={openAccountPromptModal}
-                        onDismiss={dismissAccountPrompt}
-                      />
-                    )}
-
-                    {/* Chat Bubble Scrollable Area */}
-                    <div className="flex-1 space-y-4 overflow-y-auto max-h-[460px] pr-1">
-                      {chatMessages.map((msg, idx) => (
-                        <div 
-                          key={idx}
-                          className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div 
-                            className={`max-w-[85%] rounded-3xl p-4 text-xs shadow-3xs leading-relaxed space-y-3 ${
-                              msg.sender === 'user' 
-                                ? 'bg-stone-800 text-white rounded-tr-none' 
-                                : 'bg-white text-stone-800 border border-stone-100 rounded-tl-none'
-                            }`}
-                          >
-                            <p className="whitespace-pre-line">{msg.text}</p>
-                            
-                            {/* Verdict response with match details */}
-                            {msg.verdict && (
-                              <div className="pt-2 border-t border-stone-100/30 space-y-3">
-                                {msg.verdict.recommendedIds.length > 0 && (
-                                  <div>
-                                    <p className="font-bold text-[#3D7D52] mb-1.5 flex items-center gap-1">
-                                      <Check className="w-3.5 h-3.5" /> 建议今天使用：
-                                    </p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {msg.verdict.recommendedIds.map(id => {
-                                        const prod = inventory.find(i => i.id === id);
-                                        return prod ? (
-                                          <span key={id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#E8F3E8] text-[#3D7D52] rounded-full text-[10px] font-semibold border border-[#3D7D52]/10 shadow-3xs">
-                                            {prod.name}
-                                          </span>
-                                        ) : null;
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                                {msg.verdict.avoidIds.length > 0 && (
-                                  <div>
-                                    <p className="font-bold text-rose-600 mb-1.5 flex items-center gap-1">
-                                      <AlertCircle className="w-3.5 h-3.5" /> 建议今天避开：
-                                    </p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {msg.verdict.avoidIds.map(id => {
-                                        const prod = inventory.find(i => i.id === id);
-                                        return prod ? (
-                                          <span key={id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-semibold border border-rose-100 shadow-3xs">
-                                            {prod.name}
-                                          </span>
-                                        ) : null;
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {loading && (
-                        <div className="flex justify-start">
-                          <div className="bg-white border border-stone-100 rounded-3xl rounded-tl-none p-4 text-xs text-stone-500 shadow-3xs flex items-center gap-2">
-                            <div className="flex gap-1">
-                              <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <span className="w-1.5 h-1.5 bg-stone-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                            </div>
-                            <span>GuiGui 正在为您调配诊疗建议...</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick Suggestion Chips */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0 scrollbar-none select-none">
-                      <button 
-                        onClick={() => handleQuickAsk('下巴长痘且发红，很紧绷')}
-                        className="px-3 py-1.5 bg-white border border-stone-100 text-[10px] text-stone-600 hover:text-stone-800 rounded-full whitespace-nowrap shadow-3xs"
-                      >
-                        下巴长痘发红 💧
-                      </button>
-                      <button 
-                        onClick={() => handleQuickAsk('天气太热了，T区出油严重')}
-                        className="px-3 py-1.5 bg-white border border-stone-100 text-[10px] text-stone-600 hover:text-stone-800 rounded-full whitespace-nowrap shadow-3xs"
-                      >
-                        T区出油严重 ☀️
-                      </button>
-                      <button 
-                        onClick={() => handleQuickAsk('敏感期换季，求温和修复组合')}
-                        className="px-3 py-1.5 bg-white border border-stone-100 text-[10px] text-stone-600 hover:text-stone-800 rounded-full whitespace-nowrap shadow-3xs"
-                      >
-                        敏感换季温和组合 🌱
-                      </button>
-                    </div>
-
-                    {/* Input Area */}
-                    <div className="flex gap-2 shrink-0">
-                      <textarea
-                        value={query}
-                        onChange={e => setQuery(e.target.value)}
-                        placeholder="描述您当下的皮肤状况或困扰..."
-                        className="flex-1 h-12 bg-white border border-stone-100 rounded-2xl px-4 py-3 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400 resize-none shadow-3xs leading-relaxed"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            requestVerdict();
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={requestVerdict}
-                        disabled={loading || !query.trim()}
-                        className="w-12 h-12 bg-stone-800 hover:bg-stone-700 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40 disabled:hover:bg-stone-800 shadow-2xs"
-                      >
-                        <ArrowRight className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
+                  <AiAdvisorTab
+                    activeAccountPromptCopy={activeAccountPromptCopy}
+                    activeAccountPromptTrigger={activeAccountPromptTrigger}
+                    aiInventoryHint={aiInventoryHint}
+                    chatMessages={chatMessages}
+                    inventory={inventory}
+                    loading={loading}
+                    profileQualityHint={profileQualityHint}
+                    query={query}
+                    shouldPromptProfileCompletion={shouldPromptProfileCompletion}
+                    onDismissAccountPrompt={dismissAccountPrompt}
+                    onOpenAccountPrompt={openAccountPromptModal}
+                    onOpenProfile={() => setShowProfileModal(true)}
+                    onQuickAsk={handleQuickAsk}
+                    onRequestVerdict={requestVerdict}
+                    onScan={() => setView('scan')}
+                    onSetQuery={setQuery}
+                  />
                 )}
 
                 {/* 4. ROUTINE & TRAVEL TAB (Matches Image 5 Timeline) */}
                 {tab === 'routine' && (
-                  <div className="px-4 py-2 space-y-4">
-                    {activeAccountPromptTrigger === 'travel-plan' && activeAccountPromptCopy && (
-                      <GuestAccountPromptCard
-                        title={activeAccountPromptCopy.title}
-                        description={activeAccountPromptCopy.description}
-                        onOpen={openAccountPromptModal}
-                        onDismiss={dismissAccountPrompt}
-                      />
-                    )}
-
-                    {/* Sub-tab selection */}
-                    <div className="bg-white p-1 rounded-xl flex border border-stone-100 shadow-3xs">
-                      <button
-                        onClick={() => setTravelActiveTab('routine')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                          travelActiveTab === 'routine' 
-                            ? 'bg-stone-100 text-stone-800' 
-                            : 'text-stone-400 hover:text-stone-600'
-                        }`}
-                      >
-                        每日护肤日常
-                      </button>
-                      <button
-                        onClick={() => setTravelActiveTab('travel')}
-                        className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                          travelActiveTab === 'travel' 
-                            ? 'bg-stone-100 text-stone-800' 
-                            : 'text-stone-400 hover:text-stone-600'
-                        }`}
-                      >
-                        出行智能收纳
-                      </button>
-                    </div>
-
-                    {travelActiveTab === 'routine' ? (
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border border-stone-100 shadow-3xs">
-                          <p className="text-xs text-stone-500 font-medium">每日配方</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[10px] text-stone-500 font-bold">
-                              {['Cleanser', 'Toner', 'Serum', 'Moisturizer', 'Sunscreen'].filter(cat => inventory.some(i => i.category === cat)).length} 步已就绪
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Step By Step Timeline (Image 5 style) */}
-                        <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-2xs relative space-y-6">
-                          {/* Vertical Line */}
-                          <div className="absolute left-[27px] top-8 bottom-8 w-0.5 bg-stone-100" />
-
-                          {/* Step 1: Cleanser */}
-                          <div className="flex gap-4 relative z-10">
-                            <div className="w-6 h-6 rounded-full bg-stone-800 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-sm">1</div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-stone-800">洁面乳 · Cleanser</h5>
-                                <span className="text-[8px] bg-[#E8F3E8] text-[#3D7D52] px-1.5 py-0.5 rounded-full font-bold">早晚</span>
-                              </div>
-                              {/* Check if we have a cleanser */}
-                              {inventory.some(i => i.category === 'Cleanser') ? (
-                                <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-stone-100 flex items-center justify-between">
-                                  <span className="text-[11px] text-stone-700 font-medium truncate max-w-[180px]">
-                                    {inventory.find(i => i.category === 'Cleanser')?.name}
-                                  </span>
-                                  <CheckSquare className="w-3.5 h-3.5 text-[#3D7D52]" />
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-stone-400 italic">暂无可用洁面，建议在「探索」或「拍照」中添加</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Step 2: Toner */}
-                          <div className="flex gap-4 relative z-10">
-                            <div className="w-6 h-6 rounded-full bg-stone-800 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-sm">2</div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-stone-800">爽肤补水 · Toner</h5>
-                                <span className="text-[8px] bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded-full font-bold">晚间</span>
-                              </div>
-                              {inventory.some(i => i.category === 'Toner') ? (
-                                <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-stone-100 flex items-center justify-between">
-                                  <span className="text-[11px] text-stone-700 font-medium truncate max-w-[180px]">
-                                    {inventory.find(i => i.category === 'Toner')?.name}
-                                  </span>
-                                  <CheckSquare className="w-3.5 h-3.5 text-[#3D7D52]" />
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-stone-400 italic">暂无可用补水，建议添加爽肤水</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Step 3: Serum */}
-                          <div className="flex gap-4 relative z-10">
-                            <div className="w-6 h-6 rounded-full bg-stone-800 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-sm">3</div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-stone-800">密集修复 · Serum</h5>
-                                <span className="text-[8px] bg-[#E8F3E8] text-[#3D7D52] px-1.5 py-0.5 rounded-full font-bold">早晚</span>
-                              </div>
-                              {inventory.some(i => i.category === 'Serum') ? (
-                                <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-stone-100 flex items-center justify-between">
-                                  <span className="text-[11px] text-stone-700 font-medium truncate max-w-[180px]">
-                                    {inventory.find(i => i.category === 'Serum')?.name}
-                                  </span>
-                                  <CheckSquare className="w-3.5 h-3.5 text-[#3D7D52]" />
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-stone-400 italic">暂无可用精华，建议添加精华液</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Step 4: Moisturizer */}
-                          <div className="flex gap-4 relative z-10">
-                            <div className="w-6 h-6 rounded-full bg-stone-800 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-sm">4</div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-stone-800">锁水保湿 · Cream</h5>
-                                <span className="text-[8px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded-full font-bold">早晚</span>
-                              </div>
-                              {inventory.some(i => i.category === 'Moisturizer') ? (
-                                <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-stone-100 flex items-center justify-between">
-                                  <span className="text-[11px] text-stone-700 font-medium truncate max-w-[180px]">
-                                    {inventory.find(i => i.category === 'Moisturizer')?.name}
-                                  </span>
-                                  <CheckSquare className="w-3.5 h-3.5 text-[#3D7D52]" />
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-stone-400 italic">暂无可用保湿霜，建议添加面霜</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Step 5: Sunscreen */}
-                          <div className="flex gap-4 relative z-10">
-                            <div className="w-6 h-6 rounded-full bg-stone-850 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0 border-4 border-white shadow-sm">5</div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="text-xs font-bold text-stone-800">日间防护 · Sunscreen</h5>
-                                <span className="text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">日间</span>
-                              </div>
-                              {inventory.some(i => i.category === 'Sunscreen') ? (
-                                <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-stone-100 flex items-center justify-between">
-                                  <span className="text-[11px] text-stone-700 font-medium truncate max-w-[180px]">
-                                    {inventory.find(i => i.category === 'Sunscreen')?.name}
-                                  </span>
-                                  <CheckSquare className="w-3.5 h-3.5 text-[#3D7D52]" />
-                                </div>
-                              ) : (
-                                <p className="text-[10px] text-stone-400 italic">暂无可用防晒，建议添加防晒霜</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Travel Packing Tab */
-                      <div className="space-y-4">
-                        <form onSubmit={requestTravel} className="bg-white p-5 rounded-3xl border border-stone-100 shadow-3xs space-y-4">
-                          <p className="text-xs text-stone-400 font-bold">智能规划目的地气候及推荐用量</p>
-                          
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-stone-500 font-bold">目的地</label>
-                              <input 
-                                name="destination" 
-                                required 
-                                defaultValue="三亚"
-                                placeholder="如：伦敦、东京" 
-                                className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400" 
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[10px] text-stone-500 font-bold">旅行天数</label>
-                              <input 
-                                name="days" 
-                                type="number" 
-                                required 
-                                defaultValue="7" 
-                                min="1" 
-                                className="w-full bg-[#FAF8F5] border border-stone-100 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400" 
-                              />
-                            </div>
-                          </div>
-
-                          <button 
-                            type="submit" 
-                            disabled={loading}
-                            className="w-full bg-stone-800 hover:bg-stone-700 text-white py-3 rounded-xl font-semibold text-xs active:scale-95 transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40"
-                          >
-                            {loading ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Plane className="w-3.5 h-3.5" />
-                            )}
-                            生成行李收纳清单
-                          </button>
-                        </form>
-
-                        {travelRes && (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10 }} 
-                            animate={{ opacity: 1, y: 0 }} 
-                            className="p-5 bg-[#FFF9EE] rounded-3xl border border-[#FFEAC5] text-[#855B00] space-y-3 shadow-3xs"
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                              <h6 className="text-xs font-bold">智能收纳建议</h6>
-                            </div>
-                            <p className="text-[11px] leading-relaxed">{travelRes.reason}</p>
-                            
-                            <div className="pt-2 border-t border-[#FFEAC5] space-y-1.5">
-                              <p className="text-[10px] font-bold text-stone-500 uppercase">打包清单：</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {travelRes.selectedIds.map(id => {
-                                  const prod = inventory.find(i => i.id === id);
-                                  return prod ? (
-                                    <span key={id} className="px-2.5 py-1 bg-white rounded-full text-[10px] font-semibold border border-[#FFEAC5] shadow-3xs text-stone-700">
-                                      {prod.name}
-                                    </span>
-                                  ) : null;
-                                })}
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <RoutineTravelTab
+                    activeAccountPromptCopy={activeAccountPromptCopy}
+                    activeAccountPromptTrigger={activeAccountPromptTrigger}
+                    inventory={inventory}
+                    loading={loading}
+                    travelActiveTab={travelActiveTab}
+                    travelInventoryHint={travelInventoryHint}
+                    travelRes={travelRes}
+                    onDismissAccountPrompt={dismissAccountPrompt}
+                    onOpenAccountPrompt={openAccountPromptModal}
+                    onRequestTravel={requestTravel}
+                    onSetTravelActiveTab={setTravelActiveTab}
+                  />
                 )}
               </motion.div>
             )}

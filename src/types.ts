@@ -31,6 +31,12 @@ export type VerdictResult = {
   reason: string;
 };
 
+export type ChatMessage = {
+  sender: 'user' | 'assistant';
+  text: string;
+  verdict?: VerdictResult;
+};
+
 export type TravelResult = {
   selectedIds: string[];
   reason: string;

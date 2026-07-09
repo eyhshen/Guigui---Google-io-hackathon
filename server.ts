@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config();
@@ -35,10 +35,30 @@ type SkinProfile = {
 
 const categoryPriority = ["Cleanser", "Toner", "Serum", "Moisturizer", "Sunscreen"];
 
+function getProfileQualityNote(profile: SkinProfile) {
+  const missingFields = [
+    profile.skinType ? null : "肤质",
+    profile.sensitivities.length > 0 ? null : "敏感成分",
+  ].filter(Boolean);
+
+  return missingFields.length > 0
+    ? `由于还缺少${missingFields.join("和")}，本次建议会更保守。`
+    : "已结合你的肤质和敏感项做取舍。";
+}
+
 function mockVerdict(profile: SkinProfile, inventory: Product[], condition: string) {
+  if (inventory.length === 0) {
+    return {
+      recommendedIds: [],
+      avoidIds: [],
+      reason: "你的柜子还没有产品。GuiGui 的 AI 建议只会围绕已添加产品做取舍，请先扫码添加产品。",
+    };
+  }
+
   const lowerCondition = condition.toLowerCase();
   const recommended = new Set<string>();
   const avoid = new Set<string>();
+  const profileQualityNote = getProfileQualityNote(profile);
 
   const sunscreen = inventory.find((product) => product.category === "Sunscreen");
   const moisturizer = inventory.find((product) => product.category === "Moisturizer");
@@ -74,11 +94,18 @@ function mockVerdict(profile: SkinProfile, inventory: Product[], condition: stri
   return {
     recommendedIds: Array.from(recommended),
     avoidIds: Array.from(avoid),
-    reason: "当前为本地 mock AI 建议，用于无 key 状态下测试交互。建议优先使用温和、保湿和日间防护类产品；补充真实 Gemini key 后可获得更细的个性化分析。",
+    reason: `当前为本地 mock AI 建议，用于无 key 状态下测试交互。${profileQualityNote} 建议只从你的柜子里选择温和、保湿和日间防护类产品；补充真实 Gemini key 后可获得更细的个性化分析。`,
   };
 }
 
 function mockTravel(profile: SkinProfile, inventory: Product[], destination: string, days: number) {
+  if (inventory.length === 0) {
+    return {
+      selectedIds: [],
+      reason: "你的柜子还没有产品。出行收纳会从已拥有的产品里生成清单，请先扫码添加至少 1 件产品。",
+    };
+  }
+
   const selectedIds = categoryPriority
     .map((category) => inventory.find((product) => product.category === category))
     .filter((product): product is Product => Boolean(product))
@@ -87,7 +114,7 @@ function mockTravel(profile: SkinProfile, inventory: Product[], destination: str
 
   return {
     selectedIds,
-    reason: `当前为本地 mock travel 建议，用于无 key 状态下测试。已按 ${days} 天出行优先保留清洁、保湿、防晒和一到两个精华类产品；补上真实 Gemini key 后会再结合目的地 ${destination} 输出更细的说明。`,
+    reason: `当前为本地 mock travel 建议，用于无 key 状态下测试。${getProfileQualityNote(profile)} 已按 ${days} 天前往 ${destination} 的出行场景，只从你已拥有的产品里优先保留清洁、保湿、防晒和一到两个精华类产品。`,
   };
 }
 
@@ -182,6 +209,10 @@ async function startServer() {
   app.post("/api/verdict", async (req, res) => {
     const { profile, inventory, condition } = req.body;
     try {
+      if (!Array.isArray(inventory) || inventory.length === 0) {
+        return res.json(mockVerdict(profile, [], condition || ""));
+      }
+
       if (!ai) {
         return res.json(mockVerdict(profile, inventory, condition));
       }
@@ -195,13 +226,17 @@ async function startServer() {
             Inventory: ${JSON.stringify(inventory)}
             Condition today: "${condition}"
             
-            Return a JSON object with 'recommendedIds' (array of product IDs to use), 'avoidIds' (array of product IDs to NOT use), and 'reason' (a 1-2 sentence explanation in Chinese).` }]
+            Return a JSON object with 'recommendedIds' (array of product IDs to use), 'avoidIds' (array of product IDs to NOT use), and 'reason' (a 1-2 sentence explanation in Chinese).
+            If inventory is empty, return empty arrays and explain that GuiGui needs cabinet products before giving inventory-aware advice.
+            If profile.skinType or profile.sensitivities is missing, mention that the recommendation is more conservative until those fields are completed.` }]
           }
         ],
         config: {
           systemInstruction: `You are 'GuiGui', an expert skincare assistant. 
             RULES:
             - Provide advice based ONLY on the user's provided self-reported skin profile, current inventory, and stated condition.
+            - GuiGui is cabinet-first: do not answer as a general skincare chatbot and do not recommend products that are not in Inventory.
+            - If Inventory has fewer than 3 items, acknowledge that the advice is limited by the small cabinet.
             - DO NOT provide medical advice. If the condition sounds severe (pain, pus, severe redness, allergic reaction) or mentions prescription drugs, MUST output a disclaimer: "这个情况建议咨询皮肤科专业人士" and decline product advice.
             - Phrase advice safely: "通常不建议叠用", "可能不适合你自述的敏感状况", "建议错开早晚使用".
             - DO NOT use words like "会导致", "治疗", "安全/不安全".
@@ -222,13 +257,17 @@ async function startServer() {
       res.json(JSON.parse(response.text || "{}"));
     } catch (error: any) {
       console.error("Error in /api/verdict:", error);
-      res.status(500).json({ error: error.message || "Failed to get verdict" });
+      res.json(mockVerdict(profile, inventory || [], condition || ""));
     }
   });
 
   app.post("/api/travel", async (req, res) => {
     const { profile, inventory, destination, days } = req.body;
     try {
+      if (!Array.isArray(inventory) || inventory.length === 0) {
+        return res.json(mockTravel(profile, [], destination || "", Number(days) || 0));
+      }
+
       if (!ai) {
         return res.json(mockTravel(profile, inventory, destination, days));
       }
@@ -244,13 +283,15 @@ async function startServer() {
             Duration: ${days} days
             
             Determine the likely climate for the destination right now (assume current month). 
-            Based on the climate and user profile, select the essential products from their inventory for this trip.
+            Based on the climate and user profile, select the essential products from their inventory for this trip. Never recommend products outside Inventory.
             Keep the list minimal but complete (cleanser, moisturizer, SPF, plus 1-2 treatments).
-            Return JSON: 'selectedIds' (array of product IDs), 'reason' (explanation in Chinese mentioning the climate and why these were picked).` }]
+            Return JSON: 'selectedIds' (array of product IDs), 'reason' (explanation in Chinese mentioning the climate, cabinet constraint, and why these owned products were picked).
+            If inventory is empty, return an empty selectedIds array and explain that the user needs to add products first.
+            If profile.skinType or profile.sensitivities is missing, mention that profile completion will improve packing confidence.` }]
           }
         ],
         config: {
-          systemInstruction: `You are 'GuiGui', a skincare packing assistant.`,
+          systemInstruction: `You are 'GuiGui', a cabinet-first skincare packing assistant. Select only owned products from Inventory and keep advice concise, practical, and non-medical.`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -266,7 +307,7 @@ async function startServer() {
       res.json(JSON.parse(response.text || "{}"));
     } catch (error: any) {
       console.error("Error in /api/travel:", error);
-      res.status(500).json({ error: error.message || "Failed to get travel list" });
+      res.json(mockTravel(profile, inventory || [], destination || "", Number(days) || 0));
     }
   });
 
