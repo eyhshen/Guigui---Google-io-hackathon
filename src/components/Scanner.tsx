@@ -22,6 +22,7 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   const captureAndScan = useCallback(async () => {
     if (webcamRef.current) {
@@ -32,6 +33,8 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
           return;
         }
 
+        // Freeze the frame the instant the shutter fires so the user sees the shot was taken.
+        setCapturedImage(imageSrc);
         setIsScanning(true);
         setError(null);
         const result = await scanProductImage(imageSrc);
@@ -39,6 +42,7 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
       } catch (err: any) {
         setError(err.message || '扫描失败，请重试或直接上传清晰照片。');
         setIsScanning(false);
+        setCapturedImage(null);
       }
     }
   }, [webcamRef, onScanSuccess]);
@@ -103,6 +107,15 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
               第一次使用时浏览器会询问相机权限，请点「允许」。如果之前拒绝过，需要在浏览器地址栏的站点设置里重新开启相机；也可以直接点下方「上传照片」。
             </p>
           </div>
+        )}
+
+        {/* Frozen still: shown the moment the shutter fires as confirmation the photo was taken */}
+        {capturedImage && (
+          <img
+            src={capturedImage}
+            alt="已拍摄画面"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         )}
 
         {/* Corner guides */}
