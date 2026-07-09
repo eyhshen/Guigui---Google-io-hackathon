@@ -5,11 +5,20 @@
 @import "./night-prism-tokens/typography.css";
 @import url("https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Noto+Serif+SC:wght@200;700&family=Noto+Sans+SC:wght@400;500;700&display=swap");
 
+/* Brand greeting face — the 晚安 hero */
+@font-face {
+  font-family: "LogoSC Unbounded";
+  src: url("./assets/fonts/LogoSCUnboundedSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* 夜虹 Night Prism — dark base */
 :root {
   color-scheme: dark;
   --font-display: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", serif;
-  --font-logo: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", serif;
+  --font-logo: "LogoSC Unbounded", "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", serif;
 }
 
 html, body, #root {
