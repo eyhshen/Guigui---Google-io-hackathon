@@ -1,0 +1,85 @@
+<!-- @dsCard group="Shelfie App" viewport="480x760" name="护肤架 · 建档 Onboarding" subtitle="5-step warm profile builder: intro · skin · concerns · actives · city · safety · done" -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>护肤架 · 建档 Onboarding — 夜虹</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--font-ui); -webkit-font-smoothing:antialiased; overflow:hidden; }
+  #root { height:100%; max-width:var(--page-max); margin:0 auto; position:relative; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="shelfie-ui.jsx"></script>
+<script type="text/babel" src="ShelfieOnboarding.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+const { PrismBackground, Toast } = window.NightPrismDesignSystem_4de317;
+const { useTweaks, TweaksPanel, TweakSection, TweakSlider, TweakSelect } = window;
+
+const HEADING_FONTS = {
+  serif: "'Noto Serif SC', serif",
+  sans: "'Noto Sans SC', sans-serif",
+  logo: "'LogoSC Unbounded', 'Noto Serif SC', sans-serif",
+  system: "var(--font-ui)",
+};
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "introFont": "system",
+  "introSize": 34,
+  "introWeight": 200,
+  "introSpacing": 0.11,
+  "introLineHeight": 1.45
+}/*EDITMODE-END*/;
+
+function OnboardingDemo() {
+  const [tw, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [msg, setMsg] = React.useState("");
+  const [done, setDone] = React.useState(0);
+  const toast = (m) => { setMsg(m); clearTimeout(toast._t); toast._t = setTimeout(() => setMsg(""), 2200); };
+  const introStyle = {
+    fontFamily: HEADING_FONTS[tw.introFont] || HEADING_FONTS.serif,
+    fontSize: tw.introSize,
+    fontWeight: tw.introWeight,
+    letterSpacing: `${tw.introSpacing}em`,
+    lineHeight: tw.introLineHeight,
+  };
+  return (
+    <div style={{ position: "relative", height: "100%", overflow: "hidden", background: "var(--bg)" }}>
+      <PrismBackground />
+      <div style={{ position: "absolute", inset: 0, zIndex: 1, display: "flex", flexDirection: "column", paddingTop: "var(--sat)" }}>
+        <ShelfieOnboarding key={done} toast={toast} introStyle={introStyle}
+          onDone={() => { toast("档案建好啦 ✓"); setDone((n) => n + 1); }}
+          onSkip={() => { toast("已跳过——随时可以重新建档"); setDone((n) => n + 1); }} />
+      </div>
+      <Toast show={!!msg}>{msg}</Toast>
+      <TweaksPanel>
+        <TweakSection label="建档标题 Intro heading" />
+        <TweakSelect label="字体 Font" value={tw.introFont} options={[
+          { value: "serif", label: "Noto Serif SC" },
+          { value: "sans", label: "Noto Sans SC" },
+          { value: "logo", label: "LogoSC 无界黑" },
+          { value: "system", label: "系统 System" },
+        ]} onChange={(v) => setTweak('introFont', v)} />
+        <TweakSlider label="字号 Size" value={tw.introSize} min={18} max={48} step={1} unit="px" onChange={(v) => setTweak('introSize', v)} />
+        <TweakSlider label="字重 Weight" value={tw.introWeight} min={200} max={900} step={100} onChange={(v) => setTweak('introWeight', v)} />
+        <TweakSlider label="字距 Spacing" value={tw.introSpacing} min={0} max={0.3} step={0.01} unit="em" onChange={(v) => setTweak('introSpacing', v)} />
+        <TweakSlider label="行距 Line-height" value={tw.introLineHeight} min={1} max={2.2} step={0.05} onChange={(v) => setTweak('introLineHeight', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<OnboardingDemo />);
+</script>
+</body>
+</html>

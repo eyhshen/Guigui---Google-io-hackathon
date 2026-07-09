@@ -6,6 +6,10 @@ motion, polish) may restyle anything, but must keep every contract below true.
 
 Source: Batch-1 handoff (PR
 [Phat-Po/Guigui---Google-io-hackathon#3](https://github.com/Phat-Po/Guigui---Google-io-hackathon/pull/3)).
+`main` is now at **#5** (screen sections extracted into components); these contracts
+still hold and now map onto `src/components/ShelfTab.tsx` (empty + returning home,
+shelf, scan entry), `AiAdvisorTab.tsx` (recommender), and `RoutineTravelTab.tsx`
+(routine + travel).
 
 ## Contracts
 
