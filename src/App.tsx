@@ -20,17 +20,7 @@ type S = React.CSSProperties;
 const GREETING: ChatMessage = { sender: 'assistant', text: '你好！我是你的 AI 测肤顾问 GuiGui。今天你的肌肤有什么困扰，或者想让我帮你分析化妆柜里哪些产品更适合你？' };
 
 function ShelfieLogo() {
-  return (
-    <svg viewBox="0 0 64 64" width={25} height={25} aria-label="柜柜" style={{ filter: 'drop-shadow(0 0 9px rgba(199,168,240,.5))' }}>
-      <defs>
-        <linearGradient id="np-logo-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#F5C0CB" /><stop offset=".35" stopColor="#F7DDB2" />
-          <stop offset=".7" stopColor="#BEEBD1" /><stop offset="1" stopColor="#B4D6F5" />
-        </linearGradient>
-      </defs>
-      <path d="M26 14h12v6h-3v5h6a5 5 0 0 1 5 5v18a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V30a5 5 0 0 1 5-5h6v-5h-3z" fill="url(#np-logo-g)" />
-    </svg>
-  );
+  return <img src="/guigui-logo.png" alt="柜柜" style={{ height: 30, width: 'auto', display: 'block', filter: 'drop-shadow(0 0 8px rgba(199,168,240,.45))' }} />;
 }
 
 export default function App() {

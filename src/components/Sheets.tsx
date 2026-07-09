@@ -122,10 +122,7 @@ export function MenuSheetBody({ profile, onProfile, onAccount, onClose }: { prof
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-        <svg viewBox="0 0 64 64" width={42} height={42} aria-label="柜柜" style={{ display: 'block', filter: 'drop-shadow(0 0 11px rgba(199,168,240,.55))' }}>
-          <defs><linearGradient id="np-menu-logo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#F5C0CB" /><stop offset=".35" stopColor="#F7DDB2" /><stop offset=".7" stopColor="#BEEBD1" /><stop offset="1" stopColor="#B4D6F5" /></linearGradient></defs>
-          <path d="M26 14h12v6h-3v5h6a5 5 0 0 1 5 5v18a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V30a5 5 0 0 1 5-5h6v-5h-3z" fill="url(#np-menu-logo)" />
-        </svg>
+        <img src="/guigui-logo.png" alt="柜柜" style={{ height: 46, width: 'auto', display: 'block', filter: 'drop-shadow(0 0 11px rgba(199,168,240,.5))' }} />
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.02em' }}>柜柜</div>
           <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.24em', textTransform: 'uppercase', color: 'var(--dim)', marginTop: 3 }}>GuiGui Glow · SKĀN</div>
