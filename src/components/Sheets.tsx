@@ -5,7 +5,7 @@
 import React from 'react';
 import { Icon, Button, TextField, SegmentedControl, BottleGlyph, PaoMeter } from '../np/ui';
 import { categoryLabels, skinTypeLabels, fmtYearMonth, monthsOpened, addMonthsFromMonth } from '../data';
-import { Product, SkinProfile, ScanResult } from '../types';
+import { Product, SkinProfile, ScanResult, Account } from '../types';
 
 /* mint-outlined citation pill (design DS EvidenceTag) */
 function EvidenceTag({ children, style }: { children?: React.ReactNode; style?: React.CSSProperties }) {
@@ -35,7 +35,7 @@ export function ProductSheetBody({ p, onClose, onDelete }: { p: Product; onClose
   return (
     <div>
       <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-        <div style={{ width: 74, height: 92, flex: 'none', borderRadius: 'var(--r-card)', background: 'var(--bg-2)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center' }}><BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} height={64} /></div>
+        <div style={{ width: 74, height: 92, flex: 'none', borderRadius: 'var(--r-card)', background: 'var(--bg-2)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center' }}><BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} img={p.img} height={64} /></div>
         <div style={{ minWidth: 0 }}>
           <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 999, padding: '3px 9px' }}>{p.brand}</span>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 8, lineHeight: 1.3 }}>{p.name}</div>
@@ -59,10 +59,7 @@ export function ProductSheetBody({ p, onClose, onDelete }: { p: Product; onClose
           {p.keyIngredients.map((ing) => <span key={ing} style={{ fontSize: 11, color: 'var(--ink-soft)', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, padding: '5px 11px' }}>{ing}</span>)}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
-        <EvidenceTag>成分与 PAO 来自扫描识别 · T2</EvidenceTag>
-      </div>
-      <button onClick={() => onDelete(p)} style={{ font: 'inherit', marginTop: 16, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--tint-rose)', border: '1px solid var(--border-rose)', color: 'var(--ink-on-rose)', borderRadius: 'var(--r-pill)', minHeight: 48, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><Icon name="Trash2" size={15} /> 从柜子移除</button>
+      <button onClick={() => onDelete(p)} style={{ font: 'inherit', marginTop: 20, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--tint-rose)', border: '1px solid var(--border-rose)', color: 'var(--ink-on-rose)', borderRadius: 'var(--r-pill)', minHeight: 48, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><Icon name="Trash2" size={15} /> 从柜子移除</button>
     </div>
   );
 }
@@ -92,31 +89,15 @@ export function ProfileModalBody({ profile, onSave }: { profile: SkinProfile; on
   );
 }
 
-export function AccountSheetBody({ copy, onClose }: { copy: { title: string; description: string; benefits: string[] }; onClose: () => void }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--amber)' }}>Save Later</div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginTop: 6, lineHeight: 1.35 }}>{copy.title}</div>
-      <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)', marginTop: 6 }}>{copy.description}</div>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-card)', padding: 15, marginTop: 14 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--dim)' }}>未来账号入口会负责</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 11 }}>
-          {copy.benefits.map((b) => <div key={b} style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-soft)', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 12, padding: '10px 12px' }}>{b}</div>)}
-        </div>
-      </div>
-      <div style={{ background: 'var(--tint-amber)', border: '1px solid var(--border-amber)', borderRadius: 'var(--r-card)', padding: '12px 14px', marginTop: 12, fontSize: 11.5, lineHeight: 1.7, color: 'var(--ink-on-amber)' }}>这一批只把 guest-first 的时机和入口放对，不接 Google / Apple，也不做真实持久化。</div>
-      <div style={{ marginTop: 16 }}><Button variant="ghost" style={{ width: '100%' }} onClick={onClose}>知道了，继续访客模式</Button></div>
-    </div>
-  );
-}
-
 /* app menu (hamburger) — carries the brand name (logo-only header omits it) + profile / account entries + disclaimer */
-export function MenuSheetBody({ profile, onProfile, onAccount, onClose }: { profile: SkinProfile; onProfile: () => void; onAccount: () => void; onClose: () => void }) {
+export function MenuSheetBody({ profile, account, onProfile, onAccount, onLogout, onClose }: { profile: SkinProfile; account: Account | null; onProfile: () => void; onAccount: () => void; onLogout: () => void; onClose: () => void }) {
   const skin = profile.skinType ? skinTypeLabels[profile.skinType] : '未设置';
   const sens = (profile.sensitivities || []).length ? profile.sensitivities.join('、') : '未填写';
   const rows = [
     { icon: 'Sliders', label: '编辑肤质档案', sub: `肤质 ${skin} · 敏感 ${sens}`, onClick: onProfile },
-    { icon: 'Cloud', label: '保存与同步', sub: '访客模式 · 未来账号入口', onClick: onAccount },
+    account
+      ? { icon: 'CircleCheck', label: '已登录 · 档案自动保存', sub: `${account.email} · 点此退出登录`, onClick: onLogout }
+      : { icon: 'Cloud', label: '注册 / 登录以保存档案', sub: '访客模式 · 档案暂不保存', onClick: onAccount },
   ];
   const rowStyle: React.CSSProperties = { font: 'inherit', width: '100%', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 16, padding: '12px 14px', cursor: 'pointer', color: 'inherit' };
   return (
@@ -145,19 +126,19 @@ export function MenuSheetBody({ profile, onProfile, onAccount, onClose }: { prof
   );
 }
 
-export function AddDate({ scanResult, onCancel, onConfirm }: { scanResult: ScanResult; onCancel: () => void; onConfirm: (month: string) => void }) {
+export function AddDate({ scanResult, generating, onCancel, onConfirm }: { scanResult: ScanResult; generating?: boolean; onCancel: () => void; onConfirm: (month: string) => void }) {
   const now = new Date();
   const [month, setMonth] = React.useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const expiry = addMonthsFromMonth(month, scanResult.paoMonths || 12).slice(0, 7);
   return (
-    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0' }}>
+    <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0', minWidth: 0 }}>
         <ScreenHeader eyebrow="ADD · 确认开封时间" title="它已认出，" em="补个日期" size="sm" />
         <button onClick={onCancel} style={{ font: 'inherit', fontSize: 12, color: 'var(--muted)', background: 'none', border: '1px solid var(--line)', borderRadius: 999, padding: '8px 14px', cursor: 'pointer', flex: 'none' }}>取消</button>
       </div>
-      <div style={{ padding: '18px 20px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ padding: '18px 20px 0', display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 15, alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-sheet)', padding: 16 }}>
-          <div style={{ width: 56, height: 72, flex: 'none', borderRadius: 'var(--r-thumb)', background: 'var(--bg-2)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center' }}><BottleGlyph shape={scanResult.bottle.shape} colorHex={scanResult.bottle.colorHex} category={scanResult.category} height={48} /></div>
+          <div style={{ position: 'relative', overflow: 'hidden', width: 56, height: 72, flex: 'none', borderRadius: 'var(--r-thumb)', background: 'var(--bg-2)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center' }}><BottleGlyph shape={scanResult.bottle.shape} colorHex={scanResult.bottle.colorHex} category={scanResult.category} img={scanResult.img} height={48} />{generating && !scanResult.img && <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(20,18,31,.5)', fontSize: 8, fontWeight: 700, color: '#CFC8E0', textAlign: 'center', lineHeight: 1.25 }}>AI<br />绘制中…</span>}</div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)' }}>{scanResult.brand}</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>{scanResult.name}</div>
@@ -170,7 +151,7 @@ export function AddDate({ scanResult, onCancel, onConfirm }: { scanResult: ScanR
           <span>开封保质期 (PAO)</span><span style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{scanResult.paoMonths} 个月</span>
         </div>
         <TextField label="开封月份" type="month" value={month} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMonth(e.target.value)} />
-        <div style={{ fontSize: 11.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           预计到期 <b style={{ color: 'var(--ink-on-amber)', fontVariantNumeric: 'tabular-nums' }}>{expiry.replace('-', '年')}月</b>
           <EvidenceTag>PAO 从开封起算 · T2</EvidenceTag>
         </div>

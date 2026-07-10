@@ -6,6 +6,7 @@ import https from "https";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { spawn } from "child_process";
 
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config();
@@ -206,6 +207,71 @@ async function startServer() {
     } catch (error: any) {
       console.error("Error in /api/scan:", error);
       res.status(500).json({ error: error.message || "Failed to scan product" });
+    }
+  });
+
+  // Generate a transparent cartoon drawing for a scanned product so it matches
+  // the pre-drawn cabinet items instead of falling back to the flat SVG glyph.
+  // Always resolves { img: string | null } — never throws — so the client can
+  // gracefully keep the glyph if generation is unavailable.
+  const CARTOON_STYLE =
+    "a soft hand-painted gouache / watercolor cartoon ILLUSTRATION — gentle soft shading, subtle smooth gradients, clean rounded silhouette, faithfully hand-lettered readable label text, matte finish, no harsh black outlines, NOT a photograph";
+  const REMBG_PY = path.join(process.env.HOME || "", ".cache/shelfie-imgtools/venv/bin/python");
+  const REMBG_SCRIPT = path.join(process.cwd(), "scripts", "bgremove.py");
+
+  function removeBackground(jpeg: Buffer): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const py = spawn(REMBG_PY, [REMBG_SCRIPT]);
+      const out: Buffer[] = [];
+      const err: Buffer[] = [];
+      py.stdout.on("data", (d) => out.push(d));
+      py.stderr.on("data", (d) => err.push(d));
+      py.on("error", reject);
+      py.on("close", (code) =>
+        code === 0 && out.length
+          ? resolve(Buffer.concat(out))
+          : reject(new Error("rembg exit " + code + ": " + Buffer.concat(err).toString().slice(0, 200)))
+      );
+      py.stdin.write(jpeg);
+      py.stdin.end();
+    });
+  }
+
+  app.post("/api/product-image", async (req, res) => {
+    try {
+      if (!ai) return res.json({ img: null });
+      const { name, brand, category, imageBase64 } = req.body || {};
+      const parts: any[] = [];
+      if (imageBase64) {
+        const b64 = String(imageBase64).replace(/^data:image\/(png|jpe?g|webp);base64,/, "");
+        parts.push({
+          text: `Look at the attached photo of a real skincare product (${brand || ""} ${name || ""}). Redraw THIS exact product as ${CARTOON_STYLE}. Plain PURE WHITE background, a single upright product centered with a little margin, about 85% accuracy (correct bottle silhouette, cap/pump, real colours, readable brand name). No other objects, no caption text, no ground shadow.`,
+        });
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: b64 } });
+      } else {
+        parts.push({
+          text: `Create ${CARTOON_STYLE} of this real skincare product — Brand: ${brand}, Product: ${name}, Category: ${category}. Plain PURE WHITE background, a single upright product centered with a little margin, about 85% accuracy, readable brand name. No caption text, no ground shadow.`,
+        });
+      }
+      const r = await ai.models.generateContent({
+        model: "gemini-3.1-flash-image",
+        contents: [{ role: "user", parts }],
+        config: { responseModalities: ["IMAGE"] } as any,
+      });
+      const imgPart = r.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data);
+      if (!imgPart) return res.json({ img: null });
+      const jpeg = Buffer.from((imgPart as any).inlineData.data, "base64");
+      let png: Buffer;
+      try {
+        png = await removeBackground(jpeg);
+      } catch (e: any) {
+        console.error("bgremove failed:", e?.message || e);
+        return res.json({ img: null });
+      }
+      res.json({ img: "data:image/png;base64," + png.toString("base64") });
+    } catch (error: any) {
+      console.error("Error in /api/product-image:", error?.message || error);
+      res.json({ img: null });
     }
   });
 

@@ -28,6 +28,11 @@ html, body, #root {
   font-family: var(--font-ui);
 }
 
+html, body {
+  overflow-x: hidden;          /* never let a stray element widen the page on narrow phones */
+  overscroll-behavior: none;   /* no rubber-band revealing a different colour behind the app */
+}
+
 body { -webkit-font-smoothing: antialiased; }
 
 input::placeholder, textarea::placeholder { color: var(--dim); opacity: 1; }

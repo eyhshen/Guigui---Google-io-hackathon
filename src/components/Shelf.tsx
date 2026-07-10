@@ -46,24 +46,24 @@ export function Shelf({ inventory, onProductClick, highlightedIds = [], dimUnsel
           <button
             key={product.id}
             onClick={() => onProductClick(product)}
-            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 bg-white shadow-sm border ${
-              shouldDim 
-                ? 'opacity-40 grayscale scale-95' 
+            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 bg-white/5 shadow-sm border ${
+              shouldDim
+                ? 'opacity-40 grayscale scale-95'
                 : 'opacity-100 hover:shadow-md active:scale-95'
             } ${
-              isHighlighted 
-                ? 'border-[#3D7D52] ring-4 ring-[#3D7D52]/10 bg-[#E8F3E8]/30' 
-                : 'border-stone-100/80 hover:border-stone-200'
+              isHighlighted
+                ? 'border-[#A7E8C0]/40 ring-4 ring-[#A7E8C0]/15 bg-[#A7E8C0]/10'
+                : 'border-white/10 hover:border-white/10'
             }`}
           >
             {/* Expiry Badge */}
             {status === 'expired' && (
-              <div className="absolute top-1.5 right-1.5 z-10 bg-rose-50 text-rose-600 text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-rose-100">
+              <div className="absolute top-1.5 right-1.5 z-10 bg-[#F08A9B]/12 text-[#F08A9B] text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-[#F08A9B]/30">
                 已过期
               </div>
             )}
             {status === 'expiring' && (
-              <div className="absolute top-1.5 right-1.5 z-10 bg-amber-50 text-amber-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-amber-100 animate-pulse">
+              <div className="absolute top-1.5 right-1.5 z-10 bg-[#F5C377]/12 text-[#F5C377] text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-[#F5C377]/30 animate-pulse">
                 临期
               </div>
             )}
@@ -72,9 +72,9 @@ export function Shelf({ inventory, onProductClick, highlightedIds = [], dimUnsel
               <Bottle shape={product.bottle.shape} colorHex={product.bottle.colorHex} size={48} />
             </div>
             <div className="text-center w-full mt-2.5">
-              <p className="text-[10px] font-medium text-stone-400 truncate leading-tight uppercase tracking-wider">{product.brand}</p>
-              <p className="text-[11px] font-semibold text-stone-700 truncate mt-0.5 leading-tight">{product.name}</p>
-              <span className="inline-block px-1.5 py-0.5 bg-stone-50 rounded text-[8px] text-stone-400 font-medium border border-stone-100/50 mt-1.5">
+              <p className="text-[10px] font-medium text-[#6E6884] truncate leading-tight uppercase tracking-wider">{product.brand}</p>
+              <p className="text-[11px] font-semibold text-[#CFC8E0] truncate mt-0.5 leading-tight">{product.name}</p>
+              <span className="inline-block px-1.5 py-0.5 bg-white/[0.06] rounded text-[8px] text-[#6E6884] font-medium border border-white/10 mt-1.5">
                 {translateCategory(product.category)}
               </span>
             </div>

@@ -21,7 +21,7 @@ function ProductImageSlot({ p, h }: { p: Product; h: number }) {
     <>
       <span aria-hidden style={{ position: 'absolute', inset: 0, background: `radial-gradient(118% 84% at 50% 12%, ${p.bottle.colorHex}30, transparent 62%)` }} />
       <span aria-hidden style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 6px, transparent 6px 13px)' }} />
-      <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} height={h} />
+      <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} img={p.img} height={h} />
       <span title="AI 生成图" style={{ position: 'absolute', bottom: 5, left: 5, display: 'grid', placeItems: 'center', color: p.bottle.colorHex, opacity: 0.75 }}><Icon name="Sparkles" size={10} /></span>
     </>
   );
@@ -67,7 +67,7 @@ function ShelfGrid({ inventory, onOpen, highlightedIds = [], mode = 'grid' }: { 
               <button key={p.id} onClick={() => onOpen(p)} style={{ font: 'inherit', cursor: 'pointer', background: 'none', border: 'none', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', WebkitTapHighlightColor: 'transparent' } as S}>
                 {status === 'expired' && <span style={shelfTag('rose')}>已过期</span>}
                 {status === 'expiring' && <span style={shelfTag('amber')}>临期</span>}
-                <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} height={56} />
+                <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} img={p.img} height={56} />
               </button>
             );
           })}
@@ -100,7 +100,7 @@ export function ShelfTab({ inventory, onOpen, highlightedIds, onChat, promptProf
   return (
     <div onScroll={(e) => { const y = (e.currentTarget as HTMLDivElement).scrollTop; setSy(y > gh + 20 ? gh + 20 : y); }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       <div ref={greetRef} style={{ position: 'sticky', top: 0, zIndex: 0, padding: '16px 22px 24px', opacity: fade, transform: `translateY(${(1 - fade) * -8}px)`, pointerEvents: fade < 0.2 ? 'none' : 'auto' }}>
-        <div style={{ fontFamily: 'var(--font-logo, var(--font-display, inherit))', fontSize: 52, fontWeight: 400, letterSpacing: '0.1em', color: '#F1EDF7', paintOrder: 'stroke fill', textShadow: '0 0 16px #C7A8F077', lineHeight: 1.3 } as S}>晚安，桂桂。</div>
+        <div style={{ fontFamily: 'var(--font-logo, var(--font-display, inherit))', fontSize: 'clamp(38px, 13vw, 52px)', fontWeight: 400, letterSpacing: '0.08em', color: '#F1EDF7', paintOrder: 'stroke fill', textShadow: '0 0 16px #C7A8F077', lineHeight: 1.3 } as S}>晚安，桂桂。</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 12, lineHeight: 1.7 }}>你的架子上有 <b style={{ color: 'var(--ink)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{inventory.length}</b> 件护肤品。</div>
         <button onClick={onChat} style={{ font: 'inherit', marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 999, padding: '10px 16px', cursor: 'pointer', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600 } as S}>今晚状态如何？来聊聊 <Icon name="ArrowRight" size={15} /></button>
       </div>

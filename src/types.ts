@@ -20,6 +20,7 @@ export type Product = {
     shape: ProductShape;
     colorHex: string;
   };
+  img?: string; // generated transparent product cutout, e.g. /products/<id>.png
   status: 'active' | 'expiring' | 'expired';
 };
 
@@ -40,6 +41,14 @@ export type ChatMessage = {
 export type TravelResult = {
   selectedIds: string[];
   reason: string;
+};
+
+export type Account = {
+  id: string;
+  email: string;
+  name: string;
+  provider: 'email' | 'google';
+  createdAt: string;
 };
 
 export type AccountPromptTrigger = 'first-product' | 'ai-advice' | 'travel-plan';

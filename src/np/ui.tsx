@@ -83,8 +83,19 @@ function darken(hex: string, amt = 0.42) {
 }
 
 let uid = 0;
-export function BottleGlyph({ shape, category = 'serum', colorHex, height = 52, style }: { shape?: string; category?: string; colorHex?: string; height?: number; style?: S }) {
+export function BottleGlyph({ shape, category = 'serum', colorHex, height = 52, style, img }: { shape?: string; category?: string; colorHex?: string; height?: number; style?: S; img?: string }) {
   const idRef = React.useRef<string | null>(null);
+  if (img) {
+    return (
+      <img
+        src={img}
+        alt=""
+        aria-hidden
+        draggable={false}
+        style={{ height, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block', filter: 'drop-shadow(0 3px 7px rgba(0,0,0,.32))', ...style }}
+      />
+    );
+  }
   if (idRef.current === null) idRef.current = 'np-bg-' + ++uid;
   const cat = CAT[String(category).toLowerCase()] || CAT.serum;
   const glyph = shape && GLYPHS[shape] ? shape : cat.glyph;
@@ -246,11 +257,11 @@ export function SegmentedControl({ options = [], value, onChange, name, style }:
 export function TextField({ label, type = 'text', name, value, defaultValue, onChange, placeholder, min, max, step, required, inputMode, autoComplete = 'off', style }: any) {
   const [focus, setFocus] = React.useState(false);
   return (
-    <label style={{ display: 'block', ...style }}>
+    <label style={{ display: 'block', minWidth: 0, ...style }}>
       {label ? <span style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>{label}</span> : null}
       <input type={type} name={name} value={value} defaultValue={defaultValue} onChange={onChange} placeholder={placeholder} min={min} max={max} step={step} required={required} inputMode={inputMode} autoComplete={autoComplete}
         onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-        style={{ width: '100%', boxSizing: 'border-box', font: 'inherit', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', border: `1px solid ${focus ? 'var(--border-lilac)' : 'var(--line)'}`, borderRadius: 'var(--r-card-sm)', padding: '12px 14px', boxShadow: focus ? 'var(--glow-lilac)' : 'none', transition: '.18s', fontVariantNumeric: 'tabular-nums' }} />
+        style={{ width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', font: 'inherit', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', border: `1px solid ${focus ? 'var(--border-lilac)' : 'var(--line)'}`, borderRadius: 'var(--r-card-sm)', padding: '12px 14px', boxShadow: focus ? 'var(--glow-lilac)' : 'none', transition: '.18s', fontVariantNumeric: 'tabular-nums' }} />
     </label>
   );
 }
