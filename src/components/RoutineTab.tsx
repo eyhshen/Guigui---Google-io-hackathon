@@ -67,7 +67,7 @@ function TravelPacking({ inventory, travelRes, loading, onTravel }: { inventory:
               const p = inventory.find((x) => x.id === id);
               return p ? (
                 <div key={id} style={{ display: "flex", alignItems: "center", gap: 11, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 14, padding: "10px 12px" }}>
-                  <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} height={30} />
+                  <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} img={p.img} height={30} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                     <div style={{ fontSize: 10, color: "var(--muted)" }}>{categoryLabels[p.category] || p.category}</div>

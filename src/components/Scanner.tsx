@@ -5,7 +5,7 @@ import { scanProductImage } from '../api';
 import { ScanResult } from '../types';
 
 interface ScannerProps {
-  onScanSuccess: (result: ScanResult) => void;
+  onScanSuccess: (result: ScanResult, photo?: string) => void;
   onCancel: () => void;
 }
 
@@ -38,7 +38,7 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
         setIsScanning(true);
         setError(null);
         const result = await scanProductImage(imageSrc);
-        onScanSuccess(result);
+        onScanSuccess(result, imageSrc);
       } catch (err: any) {
         setError(err.message || '扫描失败，请重试或直接上传清晰照片。');
         setIsScanning(false);
@@ -59,7 +59,7 @@ export function Scanner({ onScanSuccess, onCancel }: ScannerProps) {
       const base64String = reader.result as string;
       try {
         const result = await scanProductImage(base64String);
-        onScanSuccess(result);
+        onScanSuccess(result, base64String);
       } catch (err: any) {
         setError(err.message || 'AI 识别失败，请确保图片清晰且包含完整品牌及成分。');
         setIsScanning(false);

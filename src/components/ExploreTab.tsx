@@ -26,7 +26,7 @@ export function ExploreTab({ onAdd }: { onAdd: (curated: CuratedProduct) => void
         {curatedProducts.map((p) => (
           <div key={p.id} style={{ position: "relative", display: "flex", gap: 14, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--r-card)", padding: 14, overflow: "hidden" }}>
             <div style={{ width: 54, height: 68, flex: "none", borderRadius: "var(--r-thumb)", background: "var(--bg-2)", border: "1px solid var(--line)", display: "grid", placeItems: "center" }}>
-              <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} height={44} />
+              <BottleGlyph shape={p.bottle.shape} colorHex={p.bottle.colorHex} category={p.category} img={p.img} height={44} />
             </div>
             <div style={{ flex: 1, minWidth: 0, paddingRight: 30 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
