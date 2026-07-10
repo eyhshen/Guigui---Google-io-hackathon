@@ -1,0 +1,172 @@
+<!-- @dsCard group="Shelfie App" viewport="393x800" name="护肤架 Shelfie" subtitle="Full app recreation — shelf · explore · AI advisor · routine/travel · scan (Night Prism dark)" -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>护肤架 · 柜柜 Shelfie — 夜虹 UI Kit</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/lucide@0.544.0/dist/umd/lucide.js"></script>
+<script src="data.js"></script>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--font-ui); -webkit-font-smoothing:antialiased; overflow:hidden; }
+  #root { height:100%; max-width:var(--page-max); margin:0 auto; position:relative; }
+  @keyframes np-bounce { 0%,100%{ transform:translateY(0); opacity:.5 } 50%{ transform:translateY(-4px); opacity:1 } }
+  @media (prefers-reduced-motion: reduce){ .np-dot{ animation:none !important } }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#16141F">
+  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#16141F"/>
+    <path d="M26 14h12v6h-3v5h6a5 5 0 0 1 5 5v18a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6V30a5 5 0 0 1 5-5h6v-5h-3z" fill="url(#g)"/>
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5C0CB"/><stop offset=".35" stop-color="#F7DDB2"/><stop offset=".7" stop-color="#BEEBD1"/><stop offset="1" stop-color="#B4D6F5"/></linearGradient></defs>
+  </svg>
+</template>
+<div id="root"></div>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="shelfie-ui.jsx"></script>
+<script type="text/babel" src="ShelfieShelf.jsx"></script>
+<script type="text/babel" src="ShelfieExplore.jsx"></script>
+<script type="text/babel" src="ShelfieAI.jsx"></script>
+<script type="text/babel" src="ShelfieRoutine.jsx"></script>
+<script type="text/babel" src="ShelfieScan.jsx"></script>
+<script type="text/babel" src="ShelfieSheets.jsx"></script>
+<script type="text/babel">
+const NP = window.NightPrismDesignSystem_4de317;
+const { PrismBackground, BottomSheet, Toast, TabBar } = NP;
+const D = window.ShelfieData;
+
+const SCAN_SAMPLES = [
+  { name: "B5 修护精华", brand: "La Roche-Posay", category: "Serum", keyIngredients: ["维生素B5", "泛醇"], paoMonths: 12, bottle: { shape: "dropper", colorHex: "#8FB4D9" } },
+  { name: "清爽保湿凝露", brand: "Belif", category: "Moisturizer", keyIngredients: ["积雪草", "补水凝露"], paoMonths: 12, bottle: { shape: "jar", colorHex: "#9FD9C0" } },
+];
+const GREETING = { sender: "assistant", text: "你好！我是你的 AI 测肤顾问 GuiGui。今天你的肌肤有什么困扰，或者想让我帮你分析化妆柜里哪些产品更适合你？" };
+
+function App() {
+  const [tab, setTab] = React.useState("shelf");
+  const [view, setView] = React.useState("home");          // home | scan | add-date
+  const [inventory, setInventory] = React.useState(D.demoInventory);
+  const [profile, setProfile] = React.useState(D.demoProfile);
+  const [scanResult, setScanResult] = React.useState(null);
+  const [recognizing, setRecognizing] = React.useState(false);
+  const [scanIdx, setScanIdx] = React.useState(0);
+  const [selected, setSelected] = React.useState(null);    // product sheet
+  const [filter, setFilter] = React.useState("All");
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [messages, setMessages] = React.useState([GREETING]);
+  const [query, setQuery] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [travelRes, setTravelRes] = React.useState(null);
+  const [travelSub, setTravelSub] = React.useState("routine");
+  const [acct, setAcct] = React.useState({ activeTrigger: null, dismissed: [], showModal: false });
+  const [msg, setMsg] = React.useState("");
+  const toast = (t) => { setMsg(t); clearTimeout(toast._t); toast._t = setTimeout(() => setMsg(""), 2400); };
+
+  // ── account-prompt logic (guest-first, non-blocking) ──
+  const unlock = (trigger) => setAcct((a) => a.dismissed.includes(trigger) ? a : { ...a, activeTrigger: trigger });
+  const dismissAcct = () => setAcct((a) => ({ activeTrigger: null, dismissed: a.activeTrigger ? [...a.dismissed, a.activeTrigger] : a.dismissed, showModal: false }));
+  const activeTrigger = acct.activeTrigger && !acct.dismissed.includes(acct.activeTrigger) ? acct.activeTrigger : null;
+  const acctCopy = activeTrigger ? D.accountPromptCopy[activeTrigger] : null;
+
+  // ── derived (mirrors App.tsx) ──
+  const withStatus = inventory.map((p) => ({ p, d: D.daysBetween(D.parseM(p.expiryDate), D.TODAY) }));
+  const expired = withStatus.filter((x) => x.d < 0).map((x) => x.p);
+  const expiring = withStatus.filter((x) => x.d >= 0 && x.d <= 30).map((x) => x.p);
+  const highlightedIds = (expired.length ? expired : expiring).map((p) => p.id);
+  const missingCore = D.coreRoutineCategories.filter((c) => !inventory.some((p) => p.category === c)).map((c) => D.categoryLabels[c]);
+  const isEmpty = inventory.length === 0;
+  const hasValueMoment = inventory.length > 0 || messages.length > 1 || travelRes !== null;
+  const requiredProfileComplete = profile.skinType !== null && profile.sensitivities.length > 0;
+  const promptProfile = hasValueMoment && !requiredProfileComplete;
+
+  // ── handlers ──
+  const doScan = () => { setRecognizing(true); setTimeout(() => { setRecognizing(false); setScanResult(SCAN_SAMPLES[scanIdx % SCAN_SAMPLES.length]); setScanIdx((i) => i + 1); setView("add-date"); }, 1100); };
+  const confirmAdd = (month) => {
+    const expiry = D.fmtDate(D.addMonths(D.parseM(month), scanResult.paoMonths || 12));
+    const np = { ...scanResult, id: Math.random().toString(36).slice(2, 8), openedDate: month + "-01", expiryDate: expiry, status: "active" };
+    setInventory((inv) => [np, ...inv]);
+    setScanResult(null); setView("home"); setTab("shelf"); unlock("first-product");
+    toast(`「${np.name}」上架啦 ✓`);
+  };
+  const addExplore = (c) => { setScanResult({ name: c.name, brand: c.brand, category: c.category, keyIngredients: c.keyIngredients, paoMonths: c.paoMonths, bottle: c.bottle }); setView("add-date"); };
+  const ask = (text) => {
+    if (!text.trim() || loading) return;
+    setMessages((m) => [...m, { sender: "user", text }]); setQuery(""); setLoading(true);
+    setTimeout(() => {
+      const v = D.mockVerdict(profile, inventory, text);
+      setMessages((m) => [...m, { sender: "assistant", text: `【护肤诊断】${v.reason}`, verdict: v }]);
+      setLoading(false); unlock("ai-advice");
+    }, 1200);
+  };
+  const travel = (dest, days) => { setLoading(true); setTimeout(() => { setTravelRes(D.mockTravel(profile, inventory, dest, days)); setLoading(false); unlock("travel-plan"); }, 1000); };
+  const saveProfile = (p) => { setProfile(p); setShowProfile(false); toast("档案已更新 ✓"); };
+  const deleteProduct = (p) => { setInventory((inv) => inv.filter((x) => x.id !== p.id)); setSelected(null); toast(`已从柜子移除「${p.name}」`); };
+
+  const skinLabel = profile.skinType ? D.skinTypeLabels[profile.skinType] : "补充肤质";
+  const sensLabel = profile.sensitivities[0] || "待补敏感项";
+
+  const sheetOpen = !!selected || showProfile || acct.showModal;
+  const closeSheet = () => { setSelected(null); setShowProfile(false); setAcct((a) => ({ ...a, showModal: false })); };
+
+  return (
+    <div style={{ position: "relative", height: "100%", overflow: "hidden", background: view === "scan" ? "var(--bg-scan)" : "var(--bg)" }}>
+      <PrismBackground />
+      <div style={{ position: "absolute", inset: 0, zIndex: 1, display: "flex", flexDirection: "column", paddingTop: "var(--sat)" }}>
+        {view === "home" && (
+          <React.Fragment>
+            {/* header */}
+            <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px 8px", position: "relative", zIndex: 3 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexShrink: 0 }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: "var(--ink)", letterSpacing: ".02em", whiteSpace: "nowrap" }}>柜柜</span>
+                <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: ".24em", textTransform: "uppercase", color: "var(--dim)" }}>skān</span>
+              </div>
+              <button onClick={() => setShowProfile(true)} style={{ font: "inherit", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: "var(--ink-on-lilac)", background: "var(--tint-lilac)", border: "1px solid var(--border-lilac)", borderRadius: 999, padding: "7px 13px", cursor: "pointer", whiteSpace: "nowrap" }}>
+                <window.Icon name="Sliders" size={12} /> {skinLabel} · {sensLabel}
+              </button>
+            </header>
+            {/* tab body */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              {tab === "shelf" && (isEmpty
+                ? <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px" }}><window.EmptyCabinet onScan={() => setView("scan")} onExplore={() => setTab("explore")} /></div>
+                : <window.ShelfieShelf inventory={inventory} filter={filter} setFilter={setFilter} onOpen={setSelected} highlightedIds={highlightedIds}
+                    onScan={() => setView("scan")} promptProfile={promptProfile} onOpenProfile={() => setShowProfile(true)}
+                    accountCopy={acctCopy} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct}
+                    soonCount={expiring.length} expiredCount={expired.length} missingCoreCategories={missingCore} />)}
+              {tab === "explore" && <window.ShelfieExplore onAdd={addExplore} />}
+              {tab === "ai" && <window.ShelfieAI messages={messages} query={query} setQuery={setQuery} loading={loading} onAsk={ask} onSend={() => ask(query)} inventory={inventory}
+                promptProfile={promptProfile} onOpenProfile={() => setShowProfile(true)}
+                accountCopy={activeTrigger === "ai-advice" ? acctCopy : null} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct} />}
+              {tab === "routine" && <window.ShelfieRoutine inventory={inventory} sub={travelSub} setSub={setTravelSub} travelRes={travelRes} loading={loading} onTravel={travel}
+                accountCopy={activeTrigger === "travel-plan" ? acctCopy : null} onOpenAccount={() => setAcct((a) => ({ ...a, showModal: true }))} onDismissAccount={dismissAcct} />}
+            </div>
+            {/* bottom nav */}
+            <TabBar value={tab} onChange={setTab} items={[
+              { key: "shelf", label: "架子", icon: <window.Icon name="Package" /> },
+              { key: "explore", label: "探索", icon: <window.Icon name="Sparkles" /> },
+              { key: "ai", label: "顾问", icon: <window.Icon name="MessageCircle" /> },
+              { key: "routine", label: "收纳", icon: <window.Icon name="Plane" /> },
+            ]} />
+          </React.Fragment>
+        )}
+        {view === "scan" && <window.ShelfieScan onBack={() => setView("home")} onRecognize={doScan} recognizing={recognizing} />}
+        {view === "add-date" && scanResult && <window.ShelfieAddDate scanResult={scanResult} onCancel={() => { setScanResult(null); setView("home"); }} onConfirm={confirmAdd} />}
+      </div>
+      <BottomSheet open={sheetOpen} onClose={closeSheet}>
+        {selected && <window.ProductSheetBody p={selected} onClose={closeSheet} onDelete={deleteProduct} />}
+        {!selected && showProfile && <window.ProfileModalBody profile={profile} onSave={saveProfile} />}
+        {!selected && !showProfile && acct.showModal && acctCopy && <window.AccountSheetBody copy={acctCopy} onClose={closeSheet} />}
+      </BottomSheet>
+      <Toast show={!!msg}>{msg}</Toast>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

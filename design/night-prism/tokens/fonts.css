@@ -1,0 +1,18 @@
+/* 夜虹 Night Prism — webfonts (settled: 4c Noto Serif SC display · Jost for Latin) */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;700&family=Jost:wght@400;500;600&display=swap");
+
+/* Logo / brand-greeting face (user-provided) — used for the 晚安 greeting title. */
+@font-face {
+  font-family: "LogoSC Unbounded";
+  src: url("../assets/fonts/LogoSCUnboundedSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Display headings only; body/UI text stays on the system stack (--font-ui). */
+  --font-display: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", serif; /* @kind font */
+  /* Logo/greeting face — the brand's expressive display, for the 晚安 hero. */
+  --font-logo: "LogoSC Unbounded", "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", sans-serif; /* @kind font */
+}

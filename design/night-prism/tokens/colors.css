@@ -1,0 +1,58 @@
+/* 夜虹 Night Prism — color tokens (source of truth: uploads/app.html) */
+:root {
+  /* ground & surfaces */
+  --bg: #16141F;                       /* app background, deep violet-black */
+  --bg-2: #1B1828;                     /* secondary panel base */
+  --bg-scan: #0D0C13;                  /* scan screen ground */
+  --surface: rgba(255,255,255,.05);    /* glass, default */
+  --surface-2: rgba(255,255,255,.08);  /* glass, raised */
+  --line: rgba(255,255,255,.13);       /* hairline border */
+  --divider: rgba(255,255,255,.14);    /* shelf/list dividers */
+  --sheet-grad: linear-gradient(180deg, #232033, #1A1727); /* @kind color */
+  --toast-bg: rgba(35,31,50,.95);
+  --mask: rgba(8,7,14,.6);             /* sheet mask (pair with blur 3px) */
+
+  /* text */
+  --ink: #F1EDF7;
+  --muted: #9C94B3;
+  --dim: #6E6884;
+
+  /* THE accent — one per viewport, never a wash */
+  --prism: linear-gradient(100deg, #F5C0CB, #F7DDB2 30%, #BEEBD1 60%, #B4D6F5 85%, #D3BDF2); /* @kind color */
+  --on-prism: #16141F;                 /* text color on prism fills */
+
+  /* semantic colors (meaning, never decoration) */
+  --mint:  #A7E8C0;   /* good · "use this" · ready */
+  --rose:  #F08A9B;   /* caution · "skip this" · safety flag */
+  --amber: #F5C377;   /* expiry · "use it up" · warmth */
+  --blue:  #92C4F2;   /* info · neutral fact */
+  --lilac: #C7A8F0;   /* treatment / actives */
+
+  /* tinted body text (readable text on each semantic tint) */
+  --ink-on-mint:  #CFE8D8;
+  --ink-on-rose:  #F5D4DA;
+  --ink-on-amber: #F3E6CE;
+  --ink-on-blue:  #D8E4F2;
+  --ink-on-lilac: #E7DCF7;
+  --ink-soft: #CFC8E0;                 /* chip/label text on glass */
+
+  /* semantic tint fills + borders (cards, notes, chips-active) */
+  --tint-mint:  rgba(167,232,192,.08);
+  --tint-rose:  rgba(240,138,155,.09);
+  --tint-amber: rgba(245,195,119,.09);
+  --tint-blue:  rgba(146,196,242,.08);
+  --tint-lilac: rgba(199,168,240,.12);
+  --border-mint:  rgba(167,232,192,.35);
+  --border-rose:  rgba(240,138,155,.35);
+  --border-amber: rgba(245,195,119,.35);
+  --border-blue:  rgba(146,196,242,.3);
+  --border-lilac: rgba(199,168,240,.4);
+
+  /* per-category bottle-glyph gradients (SVG stops) */
+  --cat-mint-a: #A7E8C0;  --cat-mint-b: #4E8A68;   /* serum */
+  --cat-blue-a: #92C4F2;  --cat-blue-b: #5D7FB0;   /* cleanser · moisturizer · toner */
+  --cat-amber-a: #F5C377; --cat-amber-b: #B98A45;  /* sunscreen */
+  --cat-lilac-a: #C7A8F0; --cat-lilac-b: #8465B8;  /* treatment */
+  --cat-rose-a: #F5C0CB;  --cat-rose-b: #B06E85;   /* makeup */
+  --cat-dim-a: #4A465C;   --cat-dim-b: #332F45;    /* ghost/placeholder */
+}

@@ -1,19 +1,16 @@
 /* AI advisor tab — chat + verdict cards + quick chips + Textarea composer.
    Mirrors upstream App.tsx `ai` tab. getVerdict runs as a local mock (data.js). */
-import React from 'react';
-import { Icon, Button, Textarea, EvidenceTag } from '../np/ui';
-import { quickAsks } from '../data';
-import { ProfileCompletionPrompt, AccountPromptCard } from './prompts';
-import { ChatMessage, Product } from '../types';
+const DS_ai = window.NightPrismDesignSystem_4de317;
+const D_ai = window.ShelfieData;
 
-function VerdictChips({ ids, tone, inventory }: { ids?: string[]; tone: 'mint' | 'rose'; inventory: Product[] }) {
+function VerdictChips({ ids, tone, inventory }) {
   if (!ids || !ids.length) return null;
   const label = tone === "mint" ? "建议今天使用：" : "建议今天避开：";
   const icon = tone === "mint" ? "Check" : "AlertCircle";
   const col = tone === "mint" ? "var(--mint)" : "var(--rose)";
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: col, marginBottom: 7 }}><Icon name={icon} size={14} /> {label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: col, marginBottom: 7 }}><window.Icon name={icon} size={14} /> {label}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {ids.map((id) => {
           const p = inventory.find((x) => x.id === id);
@@ -24,27 +21,15 @@ function VerdictChips({ ids, tone, inventory }: { ids?: string[]; tone: 'mint' |
   );
 }
 
-export function AiAdvisorTab({ messages, query, setQuery, loading, onAsk, onSend, inventory, promptProfile, onOpenProfile, accountCopy, onOpenAccount, onDismissAccount }: {
-  messages: ChatMessage[];
-  query: string;
-  setQuery: (v: string) => void;
-  loading: boolean;
-  onAsk: (text: string) => void;
-  onSend: () => void;
-  inventory: Product[];
-  promptProfile: boolean;
-  onOpenProfile: () => void;
-  accountCopy: { title: string; description: string } | null;
-  onOpenAccount: () => void;
-  onDismissAccount: () => void;
-}) {
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+function ShelfieAI({ messages, query, setQuery, loading, onAsk, onSend, inventory, promptProfile, onOpenProfile, accountCopy, onOpenAccount, onDismissAccount }) {
+  const { Button, Textarea, EvidenceTag } = DS_ai;
+  const scrollRef = React.useRef(null);
   React.useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12, padding: "6px 20px 0", minHeight: 0 }}>
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
-        {promptProfile && <ProfileCompletionPrompt title="在问 AI 前，先补一点基础档案" description="这里不拦你继续提问，但先补肤质和敏感成分，AI 会更少给泛化建议。" emphasizedFields={["肤质", "敏感成分"]} onOpen={onOpenProfile} />}
-        {accountCopy && <AccountPromptCard copy={accountCopy} onOpen={onOpenAccount} onDismiss={onDismissAccount} />}
+        {promptProfile && <window.ProfileCompletionPrompt title="在问 AI 前，先补一点基础档案" description="这里不拦你继续提问，但先补肤质和敏感成分，AI 会更少给泛化建议。" emphasizedFields={["肤质", "敏感成分"]} onOpen={onOpenProfile} />}
+        {accountCopy && <window.AccountPromptCard copy={accountCopy} onOpen={onOpenAccount} onDismiss={onDismissAccount} />}
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", justifyContent: m.sender === "user" ? "flex-end" : "flex-start" }}>
             <div style={{
@@ -82,15 +67,17 @@ export function AiAdvisorTab({ messages, query, setQuery, loading, onAsk, onSend
       </div>
       {/* quick chips */}
       <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", flex: "none" }}>
-        {quickAsks.map((q) => (
+        {D_ai.quickAsks.map((q) => (
           <button key={q.chip} onClick={() => onAsk(q.text)} disabled={loading} style={{ font: "inherit", flex: "none", cursor: loading ? "default" : "pointer", fontSize: 10.5, color: "var(--ink-soft)", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 999, padding: "8px 13px", whiteSpace: "nowrap", opacity: loading ? .5 : 1 }}>{q.chip}</button>
         ))}
       </div>
       {/* composer */}
       <div style={{ display: "flex", gap: 9, alignItems: "stretch", padding: "0 0 calc(12px + var(--sab))", flex: "none" }}>
-        <Textarea value={query} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setQuery(e.target.value)} placeholder="描述你当下的皮肤状况或困扰…" onSubmit={onSend} style={{ minHeight: 48 }} />
-        <Button onClick={onSend} disabled={loading || !query.trim()} aria-label="发送" style={{ minHeight: 0, width: 48, padding: 0, flex: "none", alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="ArrowRight" size={20} /></Button>
+        <Textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="描述你当下的皮肤状况或困扰…" onSubmit={onSend} style={{ minHeight: 48 }} />
+        <Button onClick={onSend} disabled={loading || !query.trim()} aria-label="发送" style={{ minHeight: 0, width: 48, padding: 0, flex: "none", alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}><window.Icon name="ArrowRight" size={20} /></Button>
       </div>
     </div>
   );
 }
+
+Object.assign(window, { ShelfieAI });

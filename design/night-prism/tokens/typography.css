@@ -1,0 +1,31 @@
+/* 夜虹 Night Prism — type tokens. System CJK stack; no webfonts by design. */
+:root {
+  /* Jost leads the stack so all Latin/English/digits render in Jost;
+     CJK glyphs fall through to the system CJK fonts. */
+  --font-ui: "Jost", -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  /* display: LARGE + THIN, one bold word carries --prism via background-clip:text */
+  --display-size: 38px;
+  --display-weight: 200;
+  --display-tracking: .10em;
+  --display-size-ob: 23px;             /* onboarding question variant */
+
+  /* eyebrow: tiny UPPERCASE English */
+  --eyebrow-size: 9.5px;
+  --eyebrow-tracking: .42em;
+  --eyebrow-tracking-tight: .3em;      /* row labels, section dividers */
+
+  /* body & support */
+  --body-size: 12.5px;
+  --body-lh: 1.7; /* @kind other */
+  --sub-size: 12px;
+  --caption-size: 11px;
+  --legal-size: 9.5px;
+  --item-title-size: 13px;
+
+  /* weights */
+  --w-thin: 200; /* @kind font */
+  --w-regular: 500; /* @kind font */
+  --w-semibold: 600; /* @kind font */
+  --w-bold: 700; /* @kind font */
+}

@@ -1,0 +1,30 @@
+/* 夜虹 Night Prism — spacing, radius, layout */
+:root {
+  /* layout */
+  --page-max: 480px;                    /* single column, mobile web */
+  --page-x: 20px;                       /* horizontal page padding */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+
+  /* radius language: pills + soft cards, no sharp corners */
+  --r-pill: 999px;
+  --r-card: 18px;                       /* default card */
+  --r-card-sm: 16px;                    /* notes, small cards */
+  --r-card-lg: 20px;                    /* weather card */
+  --r-sheet: 26px;                      /* bottom sheet top corners */
+  --r-opt: 16px;                        /* onboarding option tiles */
+  --r-thumb: 12px;
+
+  /* spacing scale (as used, not idealized) */
+  --s-1: 4px;  --s-2: 6px;  --s-3: 8px;  --s-4: 10px;
+  --s-5: 12px; --s-6: 14px; --s-7: 16px; --s-8: 20px;
+
+  /* card padding */
+  --card-pad: 16px;
+  --card-pad-tight: 12px 14px;
+
+  /* hit targets */
+  --hit-btn: 52px;                      /* primary/ghost buttons */
+  --hit-chip: 42px;
+  --hit-min: 44px;
+}

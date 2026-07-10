@@ -1,0 +1,18 @@
+/* 夜虹 Night Prism — minimal base + shared keyframes + a: defaults */
+a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--ink); }
+
+/* form controls inherit the dark palette; placeholders sit at --dim */
+input, textarea, select, button { font-family: inherit; }
+input::placeholder, textarea::placeholder { color: var(--dim); opacity: 1; }
+input:focus, textarea:focus { outline: none; }
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="number"]::-webkit-inner-spin-button { filter: invert(.8) opacity(.5); }
+
+@keyframes np-rise { to { opacity: 1; transform: none; } }
+@keyframes np-drift-a { to { transform: rotate(-14deg) translate(-24px, 18px); } }
+@keyframes np-drift-b { to { transform: rotate(18deg) translate(30px, -14px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
