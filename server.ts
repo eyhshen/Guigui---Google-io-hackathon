@@ -35,9 +35,19 @@ type SkinProfile = {
   sensitivities: string[];
   currentActives: string[];
   city: string;
+  concerns: string[];
+  safetyFlags: string[];
 };
 
 const categoryPriority = ["Cleanser", "Toner", "Serum", "Moisturizer", "Sunscreen"];
+
+// Fixed enum agreed with the design partner — front-end onboarding must only ever write these values.
+const NO_SAFETY_FLAG = "以上都没有";
+const STRONG_ACTIVE_KEYWORDS = [
+  "水杨酸", "果酸", "杏仁酸", "乳酸", "甘醇酸", "复合酸",
+  "视黄醇", "维A醇", "A醇", "维A酸",
+  "维生素C", "左旋C", "维C",
+];
 
 function getProfileQualityNote(profile: SkinProfile) {
   const missingFields = [
@@ -49,6 +59,22 @@ function getProfileQualityNote(profile: SkinProfile) {
     ? `由于还缺少${missingFields.join("和")}，本次建议会更保守。`
     : "已结合你的肤质和敏感项做取舍。";
 }
+
+function hasSafetyTrigger(profile: SkinProfile): boolean {
+  return profile.safetyFlags.some((flag) => flag.trim().length > 0 && flag !== NO_SAFETY_FLAG);
+}
+
+function isStrongActiveProduct(product: Product): boolean {
+  return product.keyIngredients.some((ingredient) =>
+    STRONG_ACTIVE_KEYWORDS.some((keyword) => ingredient.includes(keyword))
+  );
+}
+
+function getConcernsNote(profile: SkinProfile): string {
+  return profile.concerns.length > 0 ? `长期困扰：${profile.concerns.join("、")}。` : "";
+}
+
+const SAFETY_REFERRAL_NOTE = "检测到安全项，建议先咨询皮肤科医生，已为你避开强效成分。";
 
 function mockVerdict(profile: SkinProfile, inventory: Product[], condition: string) {
   if (inventory.length === 0) {
@@ -95,10 +121,23 @@ function mockVerdict(profile: SkinProfile, inventory: Product[], condition: stri
       .forEach((product) => recommended.add(product.id));
   }
 
+  const safetyTriggered = hasSafetyTrigger(profile);
+  if (safetyTriggered) {
+    inventory
+      .filter((product) => isStrongActiveProduct(product))
+      .forEach((product) => {
+        recommended.delete(product.id);
+        avoid.add(product.id);
+      });
+  }
+
+  const safetyNote = safetyTriggered ? `${SAFETY_REFERRAL_NOTE} ` : "";
+  const concernsNote = getConcernsNote(profile);
+
   return {
     recommendedIds: Array.from(recommended),
     avoidIds: Array.from(avoid),
-    reason: `当前为本地 mock AI 建议，用于无 key 状态下测试交互。${profileQualityNote} 建议只从你的柜子里选择温和、保湿和日间防护类产品；补充真实 Gemini key 后可获得更细的个性化分析。`,
+    reason: `${safetyNote}当前为本地 mock AI 建议，用于无 key 状态下测试交互。${concernsNote}${profileQualityNote} 建议只从你的柜子里选择温和、保湿和日间防护类产品；补充真实 Gemini key 后可获得更细的个性化分析。`,
   };
 }
 
@@ -110,15 +149,23 @@ function mockTravel(profile: SkinProfile, inventory: Product[], destination: str
     };
   }
 
+  const safetyTriggered = hasSafetyTrigger(profile);
+  const eligibleInventory = safetyTriggered
+    ? inventory.filter((product) => !isStrongActiveProduct(product))
+    : inventory;
+
   const selectedIds = categoryPriority
-    .map((category) => inventory.find((product) => product.category === category))
+    .map((category) => eligibleInventory.find((product) => product.category === category))
     .filter((product): product is Product => Boolean(product))
     .slice(0, 5)
     .map((product) => product.id);
 
+  const safetyNote = safetyTriggered ? `${SAFETY_REFERRAL_NOTE} ` : "";
+  const concernsNote = getConcernsNote(profile);
+
   return {
     selectedIds,
-    reason: `当前为本地 mock travel 建议，用于无 key 状态下测试。${getProfileQualityNote(profile)} 已按 ${days} 天前往 ${destination} 的出行场景，只从你已拥有的产品里优先保留清洁、保湿、防晒和一到两个精华类产品。`,
+    reason: `${safetyNote}当前为本地 mock travel 建议，用于无 key 状态下测试。${concernsNote}${getProfileQualityNote(profile)} 已按 ${days} 天前往 ${destination} 的出行场景，只从你已拥有的产品里优先保留清洁、保湿、防晒和一到两个精华类产品。`,
   };
 }
 
@@ -294,19 +341,24 @@ async function startServer() {
             parts: [{ text: `Profile: ${JSON.stringify(profile)}
             Inventory: ${JSON.stringify(inventory)}
             Condition today: "${condition}"
-            
+            Long-term concerns (profile.concerns): ${JSON.stringify(profile.concerns || [])}
+            Safety flags (profile.safetyFlags): ${JSON.stringify(profile.safetyFlags || [])}
+
             Return a JSON object with 'recommendedIds' (array of product IDs to use), 'avoidIds' (array of product IDs to NOT use), and 'reason' (a 1-2 sentence explanation in Chinese).
             If inventory is empty, return empty arrays and explain that GuiGui needs cabinet products before giving inventory-aware advice.
-            If profile.skinType or profile.sensitivities is missing, mention that the recommendation is more conservative until those fields are completed.` }]
+            If profile.skinType or profile.sensitivities is missing, mention that the recommendation is more conservative until those fields are completed.
+            Treat profile.concerns as long-term skin concerns context, and weight recommendations toward inventory items that address them.
+            If profile.safetyFlags contains any value other than "以上都没有", treat this as a hard safety gate: move any product whose keyIngredients suggest a strong active (酸类去角质成分、视黄醇/维A醇/维A酸、高浓度维生素C) out of recommendedIds and into avoidIds, and start 'reason' with "检测到安全项，建议先咨询皮肤科医生，已为你避开强效成分。"` }]
           }
         ],
         config: {
-          systemInstruction: `You are 'GuiGui', an expert skincare assistant. 
+          systemInstruction: `You are 'GuiGui', an expert skincare assistant.
             RULES:
             - Provide advice based ONLY on the user's provided self-reported skin profile, current inventory, and stated condition.
             - GuiGui is cabinet-first: do not answer as a general skincare chatbot and do not recommend products that are not in Inventory.
             - If Inventory has fewer than 3 items, acknowledge that the advice is limited by the small cabinet.
             - DO NOT provide medical advice. If the condition sounds severe (pain, pus, severe redness, allergic reaction) or mentions prescription drugs, MUST output a disclaimer: "这个情况建议咨询皮肤科专业人士" and decline product advice.
+            - If profile.safetyFlags contains any value other than "以上都没有" (pregnancy/nursing, seeing a dermatologist or on prescription medication, severe acne/broken skin/infection), this is a HARD safety gate: you MUST exclude strong actives (chemical exfoliating acids, retinol/retinoid, high-strength vitamin C) from recommendedIds and place them in avoidIds instead, and the reason MUST begin with "检测到安全项，建议先咨询皮肤科医生，已为你避开强效成分。" This overrides all other recommendation logic.
             - Phrase advice safely: "通常不建议叠用", "可能不适合你自述的敏感状况", "建议错开早晚使用".
             - DO NOT use words like "会导致", "治疗", "安全/不安全".
             - Recommend products from their inventory to use, and products to avoid.`,
@@ -350,17 +402,21 @@ async function startServer() {
             Inventory: ${JSON.stringify(inventory)}
             Destination: ${destination}
             Duration: ${days} days
-            
-            Determine the likely climate for the destination right now (assume current month). 
+            Long-term concerns (profile.concerns): ${JSON.stringify(profile.concerns || [])}
+            Safety flags (profile.safetyFlags): ${JSON.stringify(profile.safetyFlags || [])}
+
+            Determine the likely climate for the destination right now (assume current month).
             Based on the climate and user profile, select the essential products from their inventory for this trip. Never recommend products outside Inventory.
             Keep the list minimal but complete (cleanser, moisturizer, SPF, plus 1-2 treatments).
+            Treat profile.concerns as long-term skin concerns context and prefer inventory items that address them (e.g. soothing/repair items for redness).
+            If profile.safetyFlags contains any value other than "以上都没有", this is a hard safety gate: exclude any product whose keyIngredients suggest a strong active (chemical exfoliating acids, retinol/retinoid, high-strength vitamin C) from selectedIds, and start 'reason' with "检测到安全项，建议先咨询皮肤科医生，已为你避开强效成分。"
             Return JSON: 'selectedIds' (array of product IDs), 'reason' (explanation in Chinese mentioning the climate, cabinet constraint, and why these owned products were picked).
             If inventory is empty, return an empty selectedIds array and explain that the user needs to add products first.
             If profile.skinType or profile.sensitivities is missing, mention that profile completion will improve packing confidence.` }]
           }
         ],
         config: {
-          systemInstruction: `You are 'GuiGui', a cabinet-first skincare packing assistant. Select only owned products from Inventory and keep advice concise, practical, and non-medical.`,
+          systemInstruction: `You are 'GuiGui', a cabinet-first skincare packing assistant. Select only owned products from Inventory and keep advice concise, practical, and non-medical. If profile.safetyFlags contains any value other than "以上都没有", you MUST exclude strong actives (chemical exfoliating acids, retinol/retinoid, high-strength vitamin C) from selectedIds and start 'reason' with "检测到安全项，建议先咨询皮肤科医生，已为你避开强效成分。" This overrides all other packing logic.`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,

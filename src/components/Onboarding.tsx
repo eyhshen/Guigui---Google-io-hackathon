@@ -71,6 +71,8 @@ function toProfile(d: ObData): SkinProfile {
     sensitivities: Array.from(new Set(sens)),
     currentActives: d.actives.filter((a) => !a.includes('没有')),
     city: d.city || '',
+    concerns: d.concerns,
+    safetyFlags: d.safety.filter((x) => x !== '以上都没有'),
   };
 }
 

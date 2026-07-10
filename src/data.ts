@@ -2,7 +2,7 @@
 import { addMonths, differenceInDays, format, parseISO } from 'date-fns';
 import { Product, SkinProfile, AccountPromptTrigger } from './types';
 
-export const demoProfile: SkinProfile = { skinType: null, sensitivities: [], currentActives: [], city: '' };
+export const demoProfile: SkinProfile = { skinType: null, sensitivities: [], currentActives: [], city: '', concerns: [], safetyFlags: [] };
 
 /* Onboarding (建档) flow data — options + city weather previews, ported from the design kit. */
 export const OB = {

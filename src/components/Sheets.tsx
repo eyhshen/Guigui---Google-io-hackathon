@@ -83,7 +83,7 @@ export function ProfileModalBody({ profile, onSave }: { profile: SkinProfile; on
         <TextField label="你当前所在城市" value={city} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCity(e.target.value)} placeholder="如：上海" />
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <Button style={{ flex: 1 }} onClick={() => onSave({ skinType: (skinType || null) as SkinProfile['skinType'], sensitivities: split(sens), currentActives: split(act), city: city.trim() })}>保存档案 ✓</Button>
+        <Button style={{ flex: 1 }} onClick={() => onSave({ ...profile, skinType: (skinType || null) as SkinProfile['skinType'], sensitivities: split(sens), currentActives: split(act), city: city.trim() })}>保存档案 ✓</Button>
       </div>
     </div>
   );
