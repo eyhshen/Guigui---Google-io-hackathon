@@ -41,6 +41,16 @@ input::placeholder, textarea::placeholder { color: var(--dim); opacity: 1; }
 input[type="month"]::-webkit-calendar-picker-indicator,
 input[type="number"]::-webkit-inner-spin-button { filter: invert(.85) opacity(.55); }
 
+/* iOS Safari sizes month inputs to their native control's intrinsic width,
+   overflowing the sheet; stripping the UA appearance makes width:100% stick.
+   The value then renders centered on iOS — pin it back left. */
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 42px;
+}
+input[type="month"]::-webkit-date-and-time-value { text-align: left; }
+
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
