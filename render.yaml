@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: guigui
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      # Leave unset to run in mock-AI mode; set it for real Gemini scan/verdict/travel.
+      - key: GEMINI_API_KEY
+        sync: false

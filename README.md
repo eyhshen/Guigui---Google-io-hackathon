@@ -2,6 +2,10 @@
 
 `GuiGui` is a cabinet-first AI skincare companion. The current repo is a Google I/O hackathon MVP built with `React`, `Vite`, `Express`, and `Gemini`.
 
+## Live Demo
+
+> Coming soon — deployment is prepared via the included `Dockerfile` (Cloud Run) and `render.yaml` (Render). Without a `GEMINI_API_KEY` the app runs in mock-AI mode, so a demo deployment works with or without a key.
+
 The product direction is now locked around one core loop:
 
 1. scan a product
@@ -86,7 +90,7 @@ This repo is now being used by multiple collaborators. Follow these rules:
 2. Do not commit secrets.
 3. Do not push directly from ongoing feature work to `main`.
 4. Do not mix UI polish work with new product behavior unless the task explicitly says so.
-5. Put planning, handoff, and phased execution docs under [`tasks/`](/Volumes/轻松打爆你/VIBE CODING/10_PROJECTS_ACTIVE/20260706__web__guigui-google-io-hackathon/tasks).
+5. Put planning, handoff, and phased execution docs under [`tasks/`](tasks/).
 6. Treat `main` as the integration branch, not the scratchpad.
 
 ## Collaboration Workflow
@@ -115,7 +119,7 @@ Suggested branch naming:
 - `fix/...` for bug fixes
 - `docs/...` for README or process docs
 
-More collaboration details live in [CONTRIBUTING.md](/Volumes/轻松打爆你/VIBE CODING/10_PROJECTS_ACTIVE/20260706__web__guigui-google-io-hackathon/CONTRIBUTING.md).
+More collaboration details live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Current Build Split
 
@@ -155,9 +159,9 @@ Still remaining:
 
 See:
 
-- [tasks/20260706-mvp-functional-adjustment-spec.md](/Volumes/轻松打爆你/VIBE CODING/10_PROJECTS_ACTIVE/20260706__web__guigui-google-io-hackathon/tasks/20260706-mvp-functional-adjustment-spec.md)
-- [tasks/20260706-mvp-implementation-batches.md](/Volumes/轻松打爆你/VIBE CODING/10_PROJECTS_ACTIVE/20260706__web__guigui-google-io-hackathon/tasks/20260706-mvp-implementation-batches.md)
-- [STATUS.md](/Volumes/轻松打爆你/VIBE CODING/10_PROJECTS_ACTIVE/20260706__web__guigui-google-io-hackathon/STATUS.md)
+- [tasks/20260706-mvp-functional-adjustment-spec.md](tasks/20260706-mvp-functional-adjustment-spec.md)
+- [tasks/20260706-mvp-implementation-batches.md](tasks/20260706-mvp-implementation-batches.md)
+- [STATUS.md](STATUS.md)
 
 ## Upstream
 

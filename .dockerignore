@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.env*
+certs
+design
+tasks
+assets
+scripts
+*.log
+.DS_Store

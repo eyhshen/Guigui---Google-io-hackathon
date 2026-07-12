@@ -1,9 +1,11 @@
+/* External @import must stay first: the file imports below are inlined by the
+   bundler, and any rule landing above this line makes the browser drop it. */
+@import url("https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Noto+Serif+SC:wght@200;700&family=Noto+Sans+SC:wght@400;500;700&display=swap");
 @import "tailwindcss";
 @import "./night-prism-tokens/colors.css";
 @import "./night-prism-tokens/effects.css";
 @import "./night-prism-tokens/spacing.css";
 @import "./night-prism-tokens/typography.css";
-@import url("https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Noto+Serif+SC:wght@200;700&family=Noto+Sans+SC:wght@400;500;700&display=swap");
 
 /* Brand greeting face — the 晚安 hero */
 @font-face {
