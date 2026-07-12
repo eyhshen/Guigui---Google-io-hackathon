@@ -40,6 +40,14 @@ export function PrismBackground({ animate = true, absolute = true }: { animate?:
         width: 280, height: 170, transform: 'rotate(14deg)', borderRadius: 48,
         animation: animate ? 'np-drift-b var(--dur-beam-b, 32s) ease-in-out infinite alternate' : 'none',
       }} />
+      {/* Safari paints its status-bar strip flat --bg (theme-color); the beam glow
+          otherwise reaches the page's first pixel row and shows a hard seam there.
+          Fade the top edge to exactly --bg so the strip and the page read as one. */}
+      <div aria-hidden style={{
+        position: pos, zIndex: 0, pointerEvents: 'none',
+        top: 0, left: 0, right: 0, height: 'calc(var(--sat, 0px) + 110px)',
+        background: 'linear-gradient(to bottom, var(--bg), transparent)',
+      }} />
       <div aria-hidden style={{
         position: pos, inset: 0, zIndex: 90, pointerEvents: 'none',
         opacity: 'var(--grain-opacity, .28)' as any, mixBlendMode: 'overlay',
