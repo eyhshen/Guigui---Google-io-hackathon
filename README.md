@@ -4,7 +4,9 @@
 
 ## Live Demo
 
-> Coming soon — deployment is prepared via the included `Dockerfile` (Cloud Run) and `render.yaml` (Render). Without a `GEMINI_API_KEY` the app runs in mock-AI mode, so a demo deployment works with or without a key.
+**→ [https://guigui-5xw6.onrender.com](https://guigui-5xw6.onrender.com)**
+
+> Hosted on Render's free tier — the first visit after idle takes ~1 minute to wake up. Deployment config lives in the included `Dockerfile` and `render.yaml`. Without a `GEMINI_API_KEY` the app runs in mock-AI mode, so the demo works with or without a key.
 
 The product direction is now locked around one core loop:
 
