@@ -6,7 +6,7 @@ import https from "https";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { spawn } from "child_process";
+import sharp from "sharp";
 
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config();
@@ -263,26 +263,53 @@ async function startServer() {
   // gracefully keep the glyph if generation is unavailable.
   const CARTOON_STYLE =
     "a soft hand-painted gouache / watercolor cartoon ILLUSTRATION — gentle soft shading, subtle smooth gradients, clean rounded silhouette, faithfully hand-lettered readable label text, matte finish, no harsh black outlines, NOT a photograph";
-  const REMBG_PY = path.join(process.env.HOME || "", ".cache/shelfie-imgtools/venv/bin/python");
-  const REMBG_SCRIPT = path.join(process.cwd(), "scripts", "bgremove.py");
+  // The generated image has a prompt-enforced pure-white background, so a
+  // border flood fill is enough: only white connected to the image edge turns
+  // transparent — white printed ON the bottle stays. Runs in-process (sharp),
+  // so it works identically in dev and in the deployed container.
+  const WHITE = 235;   // min(r,g,b) at or above this counts as background white
+  const FEATHER = 200; // 200..235 ramps alpha for a soft edge
 
-  function removeBackground(jpeg: Buffer): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const py = spawn(REMBG_PY, [REMBG_SCRIPT]);
-      const out: Buffer[] = [];
-      const err: Buffer[] = [];
-      py.stdout.on("data", (d) => out.push(d));
-      py.stderr.on("data", (d) => err.push(d));
-      py.on("error", reject);
-      py.on("close", (code) =>
-        code === 0 && out.length
-          ? resolve(Buffer.concat(out))
-          : reject(new Error("rembg exit " + code + ": " + Buffer.concat(err).toString().slice(0, 200)))
-      );
-      py.stdin.write(jpeg);
-      py.stdin.end();
-    });
+  async function removeBackground(jpeg: Buffer): Promise<Buffer> {
+    const { data, info } = await sharp(jpeg).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const { width: w, height: h } = info;
+    const minRGB = (i: number) => Math.min(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+    const queue: number[] = [];
+    const seen = new Uint8Array(w * h);
+    const push = (i: number) => { if (!seen[i] && minRGB(i) >= WHITE) { seen[i] = 1; queue.push(i); } };
+    for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+    for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+    while (queue.length) {
+      const i = queue.pop()!;
+      data[i * 4 + 3] = 0;
+      const x = i % w, y = (i / w) | 0;
+      for (const n of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+        if (n < 0 || seen[n]) continue;
+        const m = minRGB(n);
+        if (m >= WHITE) { seen[n] = 1; queue.push(n); }
+        else if (m >= FEATHER) { seen[n] = 1; data[n * 4 + 3] = Math.round(255 * (1 - (m - FEATHER) / (WHITE - FEATHER))); }
+      }
+    }
+    return sharp(data, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
   }
+
+  // Boot self-check. This pipeline once depended on a host-local tool and only
+  // failed in production — silently, as glyph fallbacks. Scream at startup so a
+  // broken image stack is visible in deploy logs, not discovered by users.
+  (async () => {
+    try {
+      const probe = await sharp(Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#ffffff"/><rect x="16" y="16" width="32" height="32" fill="#3355aa"/></svg>'
+      )).jpeg().toBuffer();
+      const png = await removeBackground(probe);
+      const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+      if (info.channels !== 4 || data[3] !== 0 || data[(32 * 64 + 32) * 4 + 3] !== 255)
+        throw new Error("bg-removal probe produced wrong alpha");
+      console.log("image pipeline OK (bg-removal self-check passed)");
+    } catch (e: any) {
+      console.error("IMAGE PIPELINE BROKEN — scans will fall back to flat glyphs:", e?.message || e);
+    }
+  })();
 
   app.post("/api/product-image", async (req, res) => {
     try {

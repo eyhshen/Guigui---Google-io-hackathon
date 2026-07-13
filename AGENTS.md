@@ -17,6 +17,11 @@
 3. Put plans, handoffs, and status docs under `tasks/`, not at project root.
 4. Do not edit `.env*` or commit secrets without explicit operator approval.
 5. Confirm before any `git push` or deployment-triggering action.
+6. Server code must never shell out to host-local tools or paths (`spawn`,
+   `~/.cache`, absolute paths): the app deploys as a Docker image on Render,
+   and anything not in `package.json`/the image fails there silently.
+   (Happened once: local Python rembg → prod drawings dead. See server.ts
+   boot self-check.)
 
 ## Local Run
 - Install: `npm install`
