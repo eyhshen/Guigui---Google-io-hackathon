@@ -8,3 +8,8 @@ services:
       # Leave unset to run in mock-AI mode; set it for real Gemini scan/verdict/travel.
       - key: GEMINI_API_KEY
         sync: false
+      # OAuth 2.0 *client ID* for "Sign in with Google" — a public identifier (ships in
+      # the JS bundle by design), NOT a secret. The prod origin must also be listed under
+      # Authorized JavaScript origins for this client in Google Cloud Console.
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 120689247066-vjpp68n1j2oou9q9scn7ij0sqse62ni6.apps.googleusercontent.com

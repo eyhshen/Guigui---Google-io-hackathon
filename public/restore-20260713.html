@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>柜柜 · 恢复 7/13 的柜子</title>
+<style>
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:#16141f; color:#eae6f2;
+         font-family: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif; }
+  .card { max-width:340px; padding:34px 28px; text-align:center; }
+  h1 { font-size:19px; margin:0 0 10px; }
+  p  { font-size:13px; line-height:1.7; color:#a89fc0; margin:0 0 22px; }
+  button { font:inherit; font-weight:700; width:100%; padding:14px 0; border:none; border-radius:999px;
+           background:linear-gradient(135deg,#c7a8f0,#8f7bd8); color:#191527; cursor:pointer; }
+  .done { color:#b8e6c8; font-size:14px; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>恢复 2026-07-13 的柜子</h1>
+  <p>把当晚记录的 12 件护肤品装进<strong>这台设备</strong>的柜柜（账号 elaines0429@gmail.com）。会覆盖该账号在本设备上的现有柜子。</p>
+  <button id="go">恢复 12 件产品 →</button>
+  <div class="done" id="msg"></div>
+</div>
+<script>
+const SEED = {"user": {"id": "a_2b5aww", "email": "elaines0429@gmail.com", "name": "elaine", "provider": "google", "createdAt": "2026-07-14T00:00:00.000Z"}, "data": {"profile": {"skinType": null, "sensitivities": [], "currentActives": [], "city": "", "concerns": [], "safetyFlags": []}, "inventory": [{"id": "efsdxl", "name": "Carrot Carotene Calming Water Pad", "brand": "SKINFOOD", "category": "Toner", "keyIngredients": ["Carrot Carotene", "Carrot Seed Oil"], "paoMonths": 12, "openedDate": "2025-05-01", "expiryDate": "2026-05-01", "bottle": {"shape": "jar", "colorHex": "#E8D5A3"}, "status": "active", "img": "/products/rec-efsdxl.png"}, {"id": "3dcjgv", "name": "Aqua Squalane Moisturizing Cream", "brand": "S.NATURE", "category": "Moisturizer", "keyIngredients": ["Squalane", "Betaine", "Panthenol", "Hyaluronic Acid"], "paoMonths": 12, "openedDate": "2025-05-01", "expiryDate": "2026-05-01", "bottle": {"shape": "tube", "colorHex": "#F4F6F8"}, "status": "active", "img": "/products/rec-3dcjgv.png"}, {"id": "8eblem", "name": "SOS Daily Rescue Facial Spray", "brand": "TOWER 28", "category": "Toner", "keyIngredients": ["Hypochlorous Acid"], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "spray", "colorHex": "#E8604C"}, "status": "active", "img": "/products/rec-8eblem.png"}, {"id": "2ltj95", "name": "Mung Bean pH-Balanced Cleansing Foam", "brand": "BEPLAIN", "category": "Cleanser", "keyIngredients": ["Mung Bean Extract"], "paoMonths": 12, "openedDate": "2026-05-01", "expiryDate": "2027-05-01", "bottle": {"shape": "tube", "colorHex": "#BFD860"}, "status": "active", "img": "/products/rec-2ltj95.png"}, {"id": "9p0wvh", "name": "Atobarrier 365 Hydro Essence", "brand": "AESTURA", "category": "Serum", "keyIngredients": ["DermaON", "Bifida Ferment Lysate"], "paoMonths": 12, "openedDate": "2026-05-01", "expiryDate": "2027-05-01", "bottle": {"shape": "pump", "colorHex": "#3D5A99"}, "status": "active", "img": "/products/rec-9p0wvh.png"}, {"id": "5rsrth", "name": "Skin Perfecting 2% BHA Liquid Exfoliant", "brand": "Paula's Choice", "category": "Toner", "keyIngredients": ["Salicylic Acid (2% BHA)"], "paoMonths": 12, "openedDate": "2025-07-01", "expiryDate": "2026-07-01", "bottle": {"shape": "bottle", "colorHex": "#9BA3A8"}, "status": "active", "img": "/products/rec-5rsrth.png"}, {"id": "4byeeg", "name": "Carrot Carotene Calming Water Pad", "brand": "SKINFOOD", "category": "Toner", "keyIngredients": ["Carrot Carotene", "Carrot Seed Oil"], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "jar", "colorHex": "#E8D5A3"}, "status": "active", "img": "/products/rec-4byeeg.png"}, {"id": "tikebj", "name": "Aqua Squalane Moisturizing Cream", "brand": "S.NATURE", "category": "Moisturizer", "keyIngredients": ["Squalane", "Betaine", "Panthenol", "Hyaluronic Acid"], "paoMonths": 12, "openedDate": "2025-09-01", "expiryDate": "2026-09-01", "bottle": {"shape": "tube", "colorHex": "#F4F6F8"}, "status": "active", "img": "/products/rec-tikebj.png"}, {"id": "7g8rt7", "name": "Skin Perfecting BHA Exfoliant (Step 3 泵装)", "brand": "Paula's Choice", "category": "Toner", "keyIngredients": ["Salicylic Acid", "Camellia Oleifera Leaf Extract"], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "pump", "colorHex": "#2B2B2B"}, "status": "active", "img": "/products/rec-7g8rt7.png"}, {"id": "skzj3f", "name": "Golden Moisture Cream 水分霜", "brand": "S.NATURE", "category": "Moisturizer", "keyIngredients": ["Squalane 150,000ppm", "Panthenol (B5)"], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "tube", "colorHex": "#F0EBDD"}, "status": "active", "img": "/products/rec-skzj3f.png"}, {"id": "r8sc3g", "name": "Squalane Wrinkle-Lifting Cream (Retinol)", "brand": "S.NATURE", "category": "Moisturizer", "keyIngredients": ["Squalane", "Retinol", "Panthenol", "Hyaluronic Acid"], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "tube", "colorHex": "#FFFFFF"}, "status": "active", "img": "/products/rec-r8sc3g.png"}, {"id": "a3v7ml", "name": "待确认 · 滴管瓶精华", "brand": "待确认", "category": "Serum", "keyIngredients": [], "paoMonths": 12, "openedDate": "2026-07-01", "expiryDate": "2027-07-01", "bottle": {"shape": "dropper", "colorHex": "#EDEDF2"}, "status": "active"}]}};
+document.getElementById('go').onclick = () => {
+  const users = JSON.parse(localStorage.getItem('guigui.users') || '{}');
+  users[SEED.user.email] = users[SEED.user.email] || SEED.user;
+  localStorage.setItem('guigui.users', JSON.stringify(users));
+  const id = users[SEED.user.email].id;
+  localStorage.setItem('guigui.session', id);
+  localStorage.setItem('guigui.data.' + id, JSON.stringify(SEED.data));
+  document.getElementById('msg').textContent = '✓ 已恢复，正在打开柜柜…';
+  setTimeout(() => location.href = '/', 900);
+};
+</script>
+</body>
+</html>
